@@ -2,9 +2,9 @@ import { ipcMain, BrowserWindow } from 'electron'
 import { existsSync, mkdirSync, writeFileSync, readFileSync, unlinkSync, readdirSync, statSync } from 'fs'
 import { join, dirname } from 'path'
 import log from 'electron-log'
-import { workingDirectory, worktreePath, getBaseDirectory, setSelectedWorktreePath } from './state'
+import { workingDirectory, worktreePath, getBaseDirectory, setSelectedWorktreePath, setWorktreePath, markWorktreeCreated, selectedWorktreePath } from './state'
 import { getOllamaModels, chatWithOllama } from './ollama'
-import { checkGitRepo, getGitStatus, getAllWorktrees, gitAdd, gitCommit, getStagedDiffStat } from './git'
+import { checkGitRepo, getGitStatus, getAllWorktrees, gitAdd, gitCommit, getStagedDiffStat, removeWorktree } from './git'
 import { createWorktree } from './worktree'
 
 let mainWindow: BrowserWindow | null = null
@@ -114,6 +114,17 @@ export function registerIpcHandlers() {
     } catch (error) {
       log.error('Failed to delete file:', error)
       return { success: false, error: String(error) }
+    }
+  })
+
+  ipcMain.handle('archive-worktree', async (event, path: string) => {
+    await removeWorktree(path)
+    if (worktreePath === path) {
+      setWorktreePath(null)
+      markWorktreeCreated(false)
+    }
+    if (selectedWorktreePath === path) {
+      setSelectedWorktreePath(null)
     }
   })
 

@@ -15,6 +15,7 @@ interface WorktreeListProps {
 function WorktreeList({ isGitRepo, selectedWorktree, onSelectWorktree }: WorktreeListProps) {
   const [worktrees, setWorktrees] = useState<Worktree[]>([])
   const [isLoading, setIsLoading] = useState(false)
+  const [archiving, setArchiving] = useState<Set<string>>(new Set())
 
   const fetchWorktrees = async () => {
     if (!isGitRepo) return
@@ -34,6 +35,20 @@ function WorktreeList({ isGitRepo, selectedWorktree, onSelectWorktree }: Worktre
     fetchWorktrees()
   }, [isGitRepo])
 
+  const handleArchive = async (e: React.MouseEvent, path: string) => {
+    e.stopPropagation()
+    setArchiving(prev => new Set(prev).add(path))
+    try {
+      await window.electron.archiveWorktree(path)
+      if (selectedWorktree === path) onSelectWorktree(null)
+      await fetchWorktrees()
+    } catch (err) {
+      console.error('Failed to archive worktree:', err)
+    } finally {
+      setArchiving(prev => { const s = new Set(prev); s.delete(path); return s })
+    }
+  }
+
   const shortenPath = (path: string) => {
     const parts = path.split('/')
     return parts[parts.length - 1] || path
@@ -51,6 +66,8 @@ function WorktreeList({ isGitRepo, selectedWorktree, onSelectWorktree }: Worktre
       </div>
     )
   }
+
+  console.log(worktrees);
 
   return (
     <div className="sidebar sidebar-left">
@@ -87,6 +104,16 @@ function WorktreeList({ isGitRepo, selectedWorktree, onSelectWorktree }: Worktre
                     <span className="worktree-branch">{worktree.branch}</span>
                     <span className="worktree-path">{shortenPath(worktree.path)}</span>
                   </div>
+                  {!worktree.isMain && (
+                    <button
+                      className="archive-btn"
+                      onClick={(e) => handleArchive(e, worktree.path)}
+                      disabled={archiving.has(worktree.path)}
+                      title="Archive worktree"
+                    >
+                      x
+                    </button>
+                  )}
                 </div>
               </li>
             ))}

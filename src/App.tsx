@@ -14,6 +14,7 @@ interface Message {
 declare global {
   interface Window {
     electron: {
+      archiveWorktree: (path: string) => Promise<void>
       getWorkingDirectory: () => Promise<string>
       getWorktreeStatus: () => Promise<{ created: boolean; path: string | null }>
       getOllamaModels: () => Promise<string[]>

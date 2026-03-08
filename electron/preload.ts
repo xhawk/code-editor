@@ -54,6 +54,7 @@ export interface ElectronAPI {
   listFiles: (params: { relativePath: string }) => Promise<{ success: boolean; items?: FileItem[]; error?: string }>
   gitCommit: (message: string, worktreePath?: string | null) => Promise<void>
   getStagedDiffStat: (worktreePath?: string | null) => Promise<string>
+  archiveWorktree: (path: string) => Promise<void>
 }
 
 const api: ElectronAPI = {
@@ -76,7 +77,8 @@ const api: ElectronAPI = {
   deleteFile: (params) => ipcRenderer.invoke('delete-file', params),
   listFiles: (params) => ipcRenderer.invoke('list-files', params),
   gitCommit: (message, worktreePath) => ipcRenderer.invoke('git-commit', message, worktreePath),
-  getStagedDiffStat: (worktreePath) => ipcRenderer.invoke('get-staged-diff-stat', worktreePath)
+  getStagedDiffStat: (worktreePath) => ipcRenderer.invoke('get-staged-diff-stat', worktreePath),
+  archiveWorktree: (path) => ipcRenderer.invoke('archive-worktree', path)
 }
 
 contextBridge.exposeInMainWorld('electron', api)

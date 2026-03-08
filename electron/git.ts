@@ -99,6 +99,10 @@ export async function gitAdd(filePaths: string[], worktreePath?: string): Promis
   await execAsync(`git add -- ${paths}`, { cwd })
 }
 
+export async function removeWorktree(path: string): Promise<void> {
+  await execAsync(`git worktree remove --force "${path}"`, { cwd: workingDirectory })
+}
+
 export async function getAllWorktrees(): Promise<GitWorktree[]> {
   try {
     const baseDir = getBaseDirectory()
@@ -113,34 +117,30 @@ export async function getAllWorktrees(): Promise<GitWorktree[]> {
     log.info(`getAllWorktrees: raw output = ${stdout}`)
     const worktrees: GitWorktree[] = []
     let currentWorktree: Partial<GitWorktree> | null = null
-    let hasGitdir = false
 
     for (const line of stdout.split('\n')) {
       if (line.startsWith('worktree ')) {
         if (currentWorktree && currentWorktree.path) {
           worktrees.push({
             ...currentWorktree,
-            isMain: !hasGitdir,
+            isMain: currentWorktree.path === workingDirectory,
           } as GitWorktree)
         }
         currentWorktree = {
           path: line.substring(9).trim(),
         }
-        hasGitdir = false
       } else if (line.startsWith('branch ')) {
         const branch = line.substring(7).trim().replace('refs/heads/', '')
         if (currentWorktree) {
           currentWorktree.branch = branch
         }
-      } else if (line.startsWith('gitdir ')) {
-        hasGitdir = true
       }
     }
 
     if (currentWorktree && currentWorktree.path) {
       worktrees.push({
         ...currentWorktree,
-        isMain: !hasGitdir,
+        isMain: currentWorktree.path === workingDirectory,
       } as GitWorktree)
     }
 
