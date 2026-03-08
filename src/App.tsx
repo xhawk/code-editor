@@ -2,6 +2,8 @@ import { useState, useEffect, useRef } from 'react'
 import Header from './components/Header'
 import ChatArea from './components/ChatArea'
 import Input from './components/Input'
+import GitSidebar from './components/GitSidebar'
+import WorktreeList from './components/WorktreeList'
 
 interface Message {
   role: 'user' | 'assistant'
@@ -16,6 +18,9 @@ declare global {
       getWorktreeStatus: () => Promise<{ created: boolean; path: string | null }>
       getOllamaModels: () => Promise<string[]>
       checkGitRepo: () => Promise<boolean>
+      getGitStatus: (worktreePath?: string | null) => Promise<{ branch: string; files: { path: string; status: string; indexStatus: string; worktreeStatus: string; type: 'modified' | 'added' | 'deleted' | 'renamed' | 'untracked' }[] } | null>
+      getAllWorktrees: () => Promise<{ path: string; branch: string; isMain: boolean }[]>
+      setSelectedWorktree: (path: string | null) => Promise<void>
       createWorktree: () => Promise<string | null>
       chat: (params: { model: string; messages: { role: string; content: string }[] }) => Promise<string>
       onChatStream: (callback: (chunk: string) => void) => void
@@ -24,6 +29,8 @@ declare global {
       readFile: (params: { relativePath: string }) => Promise<{ success: boolean; content?: string; error?: string }>
       deleteFile: (params: { relativePath: string }) => Promise<{ success: boolean; error?: string }>
       listFiles: (params: { relativePath: string }) => Promise<{ success: boolean; items?: { name: string; isDirectory: boolean; path: string }[]; error?: string }>
+      gitCommit: (message: string, worktreePath?: string | null) => Promise<void>
+      getStagedDiffStat: (worktreePath?: string | null) => Promise<string>
     }
   }
 }
@@ -36,6 +43,7 @@ function App() {
   const [workingDir, setWorkingDir] = useState<string>('')
   const [worktreeStatus, setWorktreeStatus] = useState<{ created: boolean; path: string | null }>({ created: false, path: null })
   const [isGitRepo, setIsGitRepo] = useState(false)
+  const [selectedWorktree, setSelectedWorktree] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
@@ -70,7 +78,27 @@ function App() {
 
   const sendMessage = async (content: string) => {
     if (!selectedModel || isLoading) return
-    
+
+    const trimmed = content.trim()
+    if (/^commit(\s|$)/i.test(trimmed)) {
+      const userMessage: Message = { role: 'user', content, timestamp: new Date() }
+      setMessages(prev => [...prev, userMessage])
+
+      const customMsg = trimmed.slice(6).trim()
+      let commitMsg = customMsg
+      if (!commitMsg) {
+        const stat = await window.electron.getStagedDiffStat(selectedWorktree)
+        commitMsg = stat || 'Update files'
+      }
+      try {
+        await window.electron.gitCommit(commitMsg, selectedWorktree)
+        setMessages(prev => [...prev, { role: 'assistant', content: `Committed: "${commitMsg}"`, timestamp: new Date() }])
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Commit failed')
+      }
+      return
+    }
+
     const userMessage: Message = { role: 'user', content, timestamp: new Date() }
     setMessages(prev => [...prev, userMessage])
     setIsLoading(true)
@@ -79,7 +107,7 @@ function App() {
     const chatMessages: { role: string; content: string }[] = [
       { 
         role: 'system', 
-        content: 'You have access to tools for file operations. Use them when appropriate: create_file, read_file, delete_file, list_files. When you need to create, read, or list files, use the appropriate tool instead of just describing code. Always respond with a natural language explanation after using tools.' 
+        content: 'You have access to tools for file operations. Use them when appropriate: create_file, read_file, delete_file, list_files, get_git_status. When you need to create, read, list files, or check git status/changed files, use the appropriate tool instead of just describing code. Always respond with a natural language explanation after using tools.'
       }
     ]
     messages.forEach(m => chatMessages.push({ role: m.role, content: m.content }))
@@ -161,18 +189,23 @@ function App() {
 
   return (
     <div className="app">
-      <Header
-        workingDir={workingDir}
-        models={models}
-        selectedModel={selectedModel}
-        onModelChange={setSelectedModel}
-        onRefreshModels={refreshModels}
-        worktreeStatus={worktreeStatus}
-        isGitRepo={isGitRepo}
-      />
-      <ChatArea messages={messages} isLoading={isLoading} error={error} />
-      <Input onSend={sendMessage} disabled={!selectedModel || isLoading} isLoading={isLoading} />
-      <div ref={messagesEndRef} />
+      <WorktreeList isGitRepo={isGitRepo} selectedWorktree={selectedWorktree} onSelectWorktree={setSelectedWorktree} />
+      <div className="main-content">
+        <Header
+          workingDir={workingDir}
+          models={models}
+          selectedModel={selectedModel}
+          onModelChange={setSelectedModel}
+          onRefreshModels={refreshModels}
+          worktreeStatus={worktreeStatus}
+          isGitRepo={isGitRepo}
+          selectedWorktree={selectedWorktree}
+        />
+        <ChatArea messages={messages} isLoading={isLoading} error={error} />
+        <Input onSend={sendMessage} disabled={!selectedModel || isLoading} isLoading={isLoading} />
+        <div ref={messagesEndRef} />
+      </div>
+      <GitSidebar isGitRepo={isGitRepo} selectedWorktree={selectedWorktree} />
     </div>
   )
 }

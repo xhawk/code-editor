@@ -18,11 +18,32 @@ export interface WorktreeStatus {
   path: string | null
 }
 
+export interface GitStatusFile {
+  path: string
+  status: string
+  indexStatus: string
+  worktreeStatus: string
+  type: 'modified' | 'added' | 'deleted' | 'renamed' | 'untracked'
+}
+
+export interface GitStatus {
+  branch: string
+  files: GitStatusFile[]
+}
+
+export interface GitWorktree {
+  path: string
+  branch: string
+  isMain: boolean
+}
+
 export interface ElectronAPI {
   getWorkingDirectory: () => Promise<string>
   getWorktreeStatus: () => Promise<WorktreeStatus>
   getOllamaModels: () => Promise<string[]>
   checkGitRepo: () => Promise<boolean>
+  getGitStatus: (worktreePath?: string | null) => Promise<GitStatus | null>
+  getAllWorktrees: () => Promise<GitWorktree[]>
   createWorktree: () => Promise<string | null>
   chat: (params: { model: string; messages: { role: string; content: string }[] }) => Promise<string>
   onChatStream: (callback: (chunk: string) => void) => void
@@ -31,6 +52,8 @@ export interface ElectronAPI {
   readFile: (params: { relativePath: string }) => Promise<FileOperationResult>
   deleteFile: (params: { relativePath: string }) => Promise<FileOperationResult>
   listFiles: (params: { relativePath: string }) => Promise<{ success: boolean; items?: FileItem[]; error?: string }>
+  gitCommit: (message: string, worktreePath?: string | null) => Promise<void>
+  getStagedDiffStat: (worktreePath?: string | null) => Promise<string>
 }
 
 const api: ElectronAPI = {
@@ -38,6 +61,8 @@ const api: ElectronAPI = {
   getWorktreeStatus: () => ipcRenderer.invoke('get-worktree-status'),
   getOllamaModels: () => ipcRenderer.invoke('get-ollama-models'),
   checkGitRepo: () => ipcRenderer.invoke('check-git-repo'),
+  getGitStatus: (worktreePath) => ipcRenderer.invoke('get-git-status', worktreePath),
+  getAllWorktrees: () => ipcRenderer.invoke('get-all-worktrees'),
   createWorktree: () => ipcRenderer.invoke('create-worktree'),
   chat: (params) => ipcRenderer.invoke('chat', params),
   onChatStream: (callback) => {
@@ -49,7 +74,9 @@ const api: ElectronAPI = {
   createFile: (params) => ipcRenderer.invoke('create-file', params),
   readFile: (params) => ipcRenderer.invoke('read-file', params),
   deleteFile: (params) => ipcRenderer.invoke('delete-file', params),
-  listFiles: (params) => ipcRenderer.invoke('list-files', params)
+  listFiles: (params) => ipcRenderer.invoke('list-files', params),
+  gitCommit: (message, worktreePath) => ipcRenderer.invoke('git-commit', message, worktreePath),
+  getStagedDiffStat: (worktreePath) => ipcRenderer.invoke('get-staged-diff-stat', worktreePath)
 }
 
 contextBridge.exposeInMainWorld('electron', api)

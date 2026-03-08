@@ -2,9 +2,9 @@ import { ipcMain, BrowserWindow } from 'electron'
 import { existsSync, mkdirSync, writeFileSync, readFileSync, unlinkSync, readdirSync, statSync } from 'fs'
 import { join, dirname } from 'path'
 import log from 'electron-log'
-import { workingDirectory, worktreePath, getBaseDirectory } from './state'
+import { workingDirectory, worktreePath, getBaseDirectory, setSelectedWorktreePath } from './state'
 import { getOllamaModels, chatWithOllama } from './ollama'
-import { checkGitRepo } from './git'
+import { checkGitRepo, getGitStatus, getAllWorktrees, gitAdd, gitCommit, getStagedDiffStat } from './git'
 import { createWorktree } from './worktree'
 
 let mainWindow: BrowserWindow | null = null
@@ -29,8 +29,28 @@ export function registerIpcHandlers() {
     return await checkGitRepo()
   })
 
+  ipcMain.handle('set-selected-worktree', async (event, path: string | null) => {
+    setSelectedWorktreePath(path)
+  })
+
+  ipcMain.handle('get-git-status', async (event, worktreePath?: string | null) => {
+    return await getGitStatus(worktreePath ?? undefined)
+  })
+
+  ipcMain.handle('get-all-worktrees', async () => {
+    return await getAllWorktrees()
+  })
+
   ipcMain.handle('create-worktree', async () => {
     return await createWorktree()
+  })
+
+  ipcMain.handle('git-commit', async (event, message: string, worktreePath?: string | null) => {
+    await gitCommit(message, worktreePath ?? undefined)
+  })
+
+  ipcMain.handle('get-staged-diff-stat', async (event, worktreePath?: string | null) => {
+    return await getStagedDiffStat(worktreePath ?? undefined)
   })
 
   ipcMain.handle('chat', async (event, { model, messages }) => {
@@ -62,6 +82,7 @@ export function registerIpcHandlers() {
       }
 
       writeFileSync(fullPath, content, 'utf-8')
+      await gitAdd([relativePath])
       log.info(`File created: ${fullPath}`)
       return { success: true, path: fullPath }
     } catch (error) {
@@ -87,6 +108,7 @@ export function registerIpcHandlers() {
       const baseDir = getBaseDirectory()
       const fullPath = join(baseDir, relativePath)
       unlinkSync(fullPath)
+      await gitAdd([relativePath])
       log.info(`File deleted: ${fullPath}`)
       return { success: true }
     } catch (error) {

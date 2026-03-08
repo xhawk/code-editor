@@ -1,6 +1,7 @@
 import { existsSync, mkdirSync, writeFileSync, readFileSync, unlinkSync, readdirSync, statSync } from 'fs'
 import { join, dirname } from 'path'
 import { getBaseDirectory } from './state'
+import { gitAdd, getGitStatus } from './git'
 
 export const tools = [
   {
@@ -59,6 +60,18 @@ export const tools = [
         required: ['relativePath']
       }
     }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'get_git_status',
+      description: 'Get git status showing changed, staged, and untracked files in the current worktree',
+      parameters: {
+        type: 'object',
+        properties: {},
+        required: []
+      }
+    }
   }
 ]
 
@@ -69,6 +82,7 @@ export async function executeTool(name: string, args: Record<string, unknown>) {
       const fullPath = join(baseDir, args.relativePath as string)
       if (!existsSync(dirname(fullPath))) mkdirSync(dirname(fullPath), { recursive: true })
       writeFileSync(fullPath, args.content as string, 'utf-8')
+      await gitAdd([args.relativePath as string])
       return { success: true, result: { path: fullPath } }
     }
     if (name === 'read_file') {
@@ -78,6 +92,7 @@ export async function executeTool(name: string, args: Record<string, unknown>) {
     if (name === 'delete_file') {
       const fullPath = join(baseDir, args.relativePath as string)
       unlinkSync(fullPath)
+      await gitAdd([args.relativePath as string])
       return { success: true, result: { path: fullPath } }
     }
     if (name === 'list_files') {
@@ -88,6 +103,10 @@ export async function executeTool(name: string, args: Record<string, unknown>) {
         path: join(args.relativePath as string, n)
       }))
       return { success: true, result: { items } }
+    }
+    if (name === 'get_git_status') {
+      const status = await getGitStatus(baseDir)
+      return { success: true, result: status }
     }
     return { success: false, error: 'Unknown tool' }
   } catch (e) {
