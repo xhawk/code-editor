@@ -8,9 +8,10 @@ interface HeaderProps {
   onRefreshModels: () => void
   worktreeStatus: { created: boolean; path: string | null }
   isGitRepo: boolean
+  selectedWorktree?: string | null
 }
 
-function Header({ workingDir, models, selectedModel, onModelChange, onRefreshModels, worktreeStatus, isGitRepo }: HeaderProps) {
+function Header({ workingDir, models, selectedModel, onModelChange, onRefreshModels, isGitRepo, selectedWorktree }: HeaderProps) {
   const [displayDir, setDisplayDir] = useState(workingDir)
 
   useEffect(() => {
@@ -32,12 +33,13 @@ function Header({ workingDir, models, selectedModel, onModelChange, onRefreshMod
         <span className="directory" title={displayDir}>
           {truncateDir(displayDir)}
         </span>
-        {isGitRepo && (
-          <span className={`worktree-status ${worktreeStatus.created ? 'active' : ''}`}>
-            {worktreeStatus.created 
-              ? `✓ ${worktreeStatus.path?.split('/').pop() || 'Worktree'} active` 
-              : '○ No worktree'}
+        {isGitRepo && selectedWorktree && (
+          <span className="worktree-status active" title={selectedWorktree}>
+            ✓ {selectedWorktree.split('/').pop() || 'Worktree'}
           </span>
+        )}
+        {isGitRepo && !selectedWorktree && (
+          <span className="worktree-status">○ No worktree selected</span>
         )}
         {!isGitRepo && (
           <span className="worktree-status not-git">Not a git repo</span>

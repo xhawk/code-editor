@@ -3,6 +3,7 @@ node_modules/
 dist/
 dist-electron/
 release/
+workspace/
 *.log
 .DS_Store
 *.local
