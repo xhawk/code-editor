@@ -14,9 +14,10 @@ interface GitStatus {
 interface GitSidebarProps {
   isGitRepo: boolean
   selectedWorktree?: string | null
+  refreshKey?: number
 }
 
-function GitSidebar({ isGitRepo, selectedWorktree }: GitSidebarProps) {
+function GitSidebar({ isGitRepo, selectedWorktree, refreshKey }: GitSidebarProps) {
   const [gitStatus, setGitStatus] = useState<GitStatus | null>(null)
   const [isLoading, setIsLoading] = useState(false)
 
@@ -37,7 +38,7 @@ function GitSidebar({ isGitRepo, selectedWorktree }: GitSidebarProps) {
 
   useEffect(() => {
     fetchGitStatus()
-  }, [isGitRepo, selectedWorktree])
+  }, [isGitRepo, selectedWorktree, refreshKey])
 
   const getStatusColor = (status: string) => {
     switch (status) {

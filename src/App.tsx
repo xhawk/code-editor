@@ -45,6 +45,7 @@ function App() {
   const [isGitRepo, setIsGitRepo] = useState(false)
   const [selectedWorktree, setSelectedWorktree] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [gitRefreshKey, setGitRefreshKey] = useState(0)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -93,6 +94,7 @@ function App() {
       try {
         await window.electron.gitCommit(commitMsg, selectedWorktree)
         setMessages(prev => [...prev, { role: 'assistant', content: `Committed: "${commitMsg}"`, timestamp: new Date() }])
+        setGitRefreshKey(k => k + 1)
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Commit failed')
       }
@@ -205,7 +207,7 @@ function App() {
         <Input onSend={sendMessage} disabled={!selectedModel || isLoading} isLoading={isLoading} />
         <div ref={messagesEndRef} />
       </div>
-      <GitSidebar isGitRepo={isGitRepo} selectedWorktree={selectedWorktree} />
+      <GitSidebar isGitRepo={isGitRepo} selectedWorktree={selectedWorktree} refreshKey={gitRefreshKey} />
     </div>
   )
 }
