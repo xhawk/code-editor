@@ -1,0 +1,14 @@
+:root {
+  --bg-primary: #1e1e2e;
+  --bg-surface: #313244;
+  --bg-surface-hover: #45475a;
+  --color-primary: #89b4fa;
+  --color-primary-hover: #b4befe;
+  --text-primary: #cdd6f4;
+  --text-secondary: #a6adc8;
+  --user-msg-bg: #585b70;
+  --ai-msg-bg: #313244;
+  --border-color: #45475a;
+  --success: #a6e3a1;
+  --error: #f38ba8;
+}
