@@ -21,6 +21,8 @@ export interface OllamaMessage {
   name?: string
 }
 
+type ToolCall = { id: string; name: string; arguments: Record<string, unknown> }
+
 function formatToolResult(result: unknown): string {
   if (result === null || result === undefined) return ''
   if (typeof result === 'string') return result
@@ -45,18 +47,10 @@ export async function getOllamaModels(): Promise<string[]> {
   }
 }
 
-export async function* chatWithOllama(
-  model: string,
-  messages: OllamaMessage[],
-  enableTools = true,
-  depth = 0
-): AsyncGenerator<string> {
-  log.info(`chatWithOllama: model=${model}, enableTools=${enableTools}, messagesCount=${messages.length}`)
-
-  let stream: AsyncIterable<{ message: { content?: string; tool_calls?: { function: { name: string; arguments: unknown } }[] } }>
-
+// Returns null when the model rejected tools and the caller should retry without them.
+async function openStream(model: string, messages: OllamaMessage[], enableTools: boolean) {
   try {
-    stream = await ollamaClient.chat({
+    return await ollamaClient.chat({
       model,
       messages: messages as Message[],
       stream: true,
@@ -65,14 +59,59 @@ export async function* chatWithOllama(
   } catch (e) {
     if (isResponseError(e) && e.status_code === 400 && enableTools) {
       log.warn(`chatWithOllama: request failed with 400, retrying without tools: ${e.error}`)
-      yield* chatWithOllama(model, messages, false, depth)
-      return
+      return null
     }
     throw e
   }
+}
+
+async function executeToolCalls(toolCalls: ToolCall[]): Promise<OllamaMessage[]> {
+  const results: OllamaMessage[] = []
+  for (const tc of toolCalls) {
+    try {
+      const result = await executeTool(tc.name, tc.arguments)
+      results.push({
+        role: 'tool',
+        content: result.success ? formatToolResult(result.result) : `Error: ${result.error}`,
+        tool_call_id: tc.id,
+        name: tc.name
+      })
+    } catch (e) {
+      results.push({
+        role: 'tool',
+        content: `Error parsing arguments: ${String(e)}`,
+        tool_call_id: tc.id,
+        name: tc.name
+      })
+    }
+  }
+  return results
+}
+
+/**
+ * Streams text from Ollama, automatically handling tool calls by executing them and continuing the conversation.
+ *
+ * @param model The Ollama model to use.
+ * @param messages The conversation history.
+ * @param enableTools Whether to enable tool calling (defaults to true).
+ * @param depth The recursion depth to prevent infinite loops.
+ */
+export async function* chatWithOllama(
+  model: string,
+  messages: OllamaMessage[],
+  enableTools = true,
+  depth = 0
+): AsyncGenerator<string> {
+  log.info(`chatWithOllama: model=${model}, enableTools=${enableTools}, messagesCount=${messages.length}`)
+
+  const stream = await openStream(model, messages, enableTools)
+  if (!stream) {
+    yield* chatWithOllama(model, messages, false, depth)
+    return
+  }
 
   let contentAccumulated = ''
-  const toolCallsCollected: Array<{ id: string; name: string; arguments: Record<string, unknown> }> = []
+  const toolCalls: ToolCall[] = []
 
   for await (const chunk of stream) {
     if (chunk.message.content) {
@@ -85,64 +124,28 @@ export async function* chatWithOllama(
         const args = typeof tc.function.arguments === 'string'
           ? JSON.parse(tc.function.arguments)
           : (tc.function.arguments ?? {})
-        toolCallsCollected.push({
-          id: `call_${Date.now()}_${i}`,
-          name: tc.function.name,
-          arguments: args as Record<string, unknown>
-        })
+        toolCalls.push({ id: `call_${Date.now()}_${i}`, name: tc.function.name, arguments: args as Record<string, unknown> })
       }
     }
   }
 
-  if (toolCallsCollected.length > 0) {
-    if (depth >= 10) {
-      log.warn('chatWithOllama: max tool-call depth reached')
-      return
-    }
-
-    const toolResults: OllamaMessage[] = []
-
-    for (const tc of toolCallsCollected) {
-      try {
-        const result = await executeTool(tc.name, tc.arguments)
-        const resultContent = result.success
-          ? formatToolResult(result.result)
-          : `Error: ${result.error}`
-
-        toolResults.push({
-          role: 'tool',
-          content: resultContent,
-          tool_call_id: tc.id,
-          name: tc.name
-        })
-      } catch (e) {
-        toolResults.push({
-          role: 'tool',
-          content: `Error parsing arguments: ${String(e)}`,
-          tool_call_id: tc.id,
-          name: tc.name
-        })
-      }
-    }
-
-    const updatedMessages: OllamaMessage[] = [
-      ...messages,
-      {
-        role: 'assistant',
-        content: contentAccumulated,
-        tool_calls: toolCallsCollected.map(tc => ({
-          id: tc.id,
-          type: 'function' as const,
-          function: { name: tc.name, arguments: tc.arguments }
-        }))
-      },
-      ...toolResults
-    ]
-
-    log.info(`chatWithOllama: recursive call depth=${depth + 1}, messages=${updatedMessages.length}`)
-
-    for await (const chunk of chatWithOllama(model, updatedMessages, true, depth + 1)) {
-      yield chunk
-    }
+  if (toolCalls.length === 0) return
+  if (depth >= 10) {
+    log.warn('chatWithOllama: max tool-call depth reached')
+    return
   }
+
+  const toolResults = await executeToolCalls(toolCalls)
+  const updatedMessages: OllamaMessage[] = [
+    ...messages,
+    {
+      role: 'assistant',
+      content: contentAccumulated,
+      tool_calls: toolCalls.map(tc => ({ id: tc.id, type: 'function' as const, function: { name: tc.name, arguments: tc.arguments } }))
+    },
+    ...toolResults
+  ]
+
+  log.info(`chatWithOllama: recursive call depth=${depth + 1}, messages=${updatedMessages.length}`)
+  yield* chatWithOllama(model, updatedMessages, true, depth + 1)
 }
