@@ -17,7 +17,7 @@ export default defineConfig({
           build: {
             outDir: 'dist-electron',
             rollupOptions: {
-              external: ['electron', 'electron-log']
+              external: ['electron', 'electron-log', 'ollama']
             }
           }
         }
