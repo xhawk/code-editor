@@ -1,4 +1,6 @@
 .idea/
+.ocx/
+.opencode/
 node_modules/
 dist/
 dist-electron/
