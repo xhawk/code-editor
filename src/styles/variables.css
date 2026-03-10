@@ -12,3 +12,18 @@
   --success: #a6e3a1;
   --error: #f38ba8;
 }
+
+[data-theme="light"] {
+  --bg-primary: #eff1f5;
+  --bg-surface: #e6e9ef;
+  --bg-surface-hover: #ccd0da;
+  --color-primary: #1e66f5;
+  --color-primary-hover: #7287fd;
+  --text-primary: #4c4f69;
+  --text-secondary: #6c6f85;
+  --user-msg-bg: #dc8a78;
+  --ai-msg-bg: #e6e9ef;
+  --border-color: #ccd0da;
+  --success: #40a02b;
+  --error: #d20f39;
+}

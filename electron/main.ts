@@ -2,8 +2,15 @@ import { app, BrowserWindow } from 'electron'
 import { existsSync } from 'fs'
 import { join, resolve, isAbsolute } from 'path'
 import log from 'electron-log'
+import Store from 'electron-store'
 import { setWorkingDirectory } from './state'
 import { setMainWindow, registerIpcHandlers } from './ipc-handlers'
+
+const store = new Store()
+
+export function getStore() {
+  return store
+}
 
 log.initialize()
 log.transports.file.level = 'info'

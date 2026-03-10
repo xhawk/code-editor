@@ -9,9 +9,11 @@ interface HeaderProps {
   worktreeStatus: { created: boolean; path: string | null }
   isGitRepo: boolean
   selectedWorktree?: string | null
+  theme: string
+  onThemeChange: (theme: string) => void
 }
 
-function Header({ workingDir, models, selectedModel, onModelChange, onRefreshModels, isGitRepo, selectedWorktree }: HeaderProps) {
+function Header({ workingDir, models, selectedModel, onModelChange, onRefreshModels, isGitRepo, selectedWorktree, theme, onThemeChange }: HeaderProps) {
   const [displayDir, setDisplayDir] = useState(workingDir)
 
   useEffect(() => {
@@ -47,6 +49,14 @@ function Header({ workingDir, models, selectedModel, onModelChange, onRefreshMod
       </div>
       
       <div className="header-right">
+        <select
+          value={theme}
+          onChange={(e) => onThemeChange(e.target.value)}
+          className="theme-select"
+        >
+          <option value="dark">Dark</option>
+          <option value="light">Light</option>
+        </select>
         <select
           value={selectedModel}
           onChange={(e) => onModelChange(e.target.value)}

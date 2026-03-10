@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react'
 import { PrismLight as SyntaxHighlighter } from 'react-syntax-highlighter'
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism'
+import { prism } from 'react-syntax-highlighter/dist/esm/styles/prism'
 import javascript from 'react-syntax-highlighter/dist/esm/languages/prism/javascript'
 import typescript from 'react-syntax-highlighter/dist/esm/languages/prism/typescript'
 import python from 'react-syntax-highlighter/dist/esm/languages/prism/python'
@@ -99,6 +100,7 @@ function getLanguage(filePath: string): string {
 interface FilePanelProps {
   filePath: string
   worktreePath?: string | null
+  theme?: string
 }
 
 const Highlighter = SyntaxHighlighter as unknown as React.FC<{
@@ -109,7 +111,7 @@ const Highlighter = SyntaxHighlighter as unknown as React.FC<{
   children: string
 }>
 
-function FilePanel({ filePath, worktreePath }: FilePanelProps) {
+function FilePanel({ filePath, worktreePath, theme = 'dark' }: FilePanelProps) {
   const [content, setContent] = useState<string>('')
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -155,12 +157,14 @@ function FilePanel({ filePath, worktreePath }: FilePanelProps) {
     )
   }
 
+  const syntaxStyle = theme === 'light' ? prism : vscDarkPlus
+
   return (
     <div className="file-panel">
       <div className="file-panel-content">
         <Highlighter
           language={language}
-          style={vscDarkPlus}
+          style={syntaxStyle}
           showLineNumbers
           wrapLines
         >

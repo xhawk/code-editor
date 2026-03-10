@@ -55,6 +55,9 @@ export interface ElectronAPI {
   gitCommit: (message: string, worktreePath?: string | null) => Promise<void>
   getStagedDiffStat: (worktreePath?: string | null) => Promise<string>
   archiveWorktree: (path: string) => Promise<void>
+  getTheme: () => Promise<string>
+  setTheme: (theme: string) => Promise<void>
+  onThemeChanged: (callback: (theme: string) => void) => void
 }
 
 const api: ElectronAPI = {
@@ -78,7 +81,12 @@ const api: ElectronAPI = {
   listFiles: (params) => ipcRenderer.invoke('list-files', params),
   gitCommit: (message, worktreePath) => ipcRenderer.invoke('git-commit', message, worktreePath),
   getStagedDiffStat: (worktreePath) => ipcRenderer.invoke('get-staged-diff-stat', worktreePath),
-  archiveWorktree: (path) => ipcRenderer.invoke('archive-worktree', path)
+  archiveWorktree: (path) => ipcRenderer.invoke('archive-worktree', path),
+  getTheme: () => ipcRenderer.invoke('get-theme'),
+  setTheme: (theme) => ipcRenderer.invoke('set-theme', theme),
+  onThemeChanged: (callback) => {
+    ipcRenderer.on('theme-changed', (_, theme) => callback(theme))
+  }
 }
 
 contextBridge.exposeInMainWorld('electron', api)

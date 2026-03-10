@@ -23,12 +23,15 @@ declare global {
       chat: (params: { model: string; messages: { role: string; content: string }[] }) => Promise<string>
       onChatStream: (callback: (chunk: string) => void) => void
       onWorktreeCreated: (callback: (data: { path: string }) => void) => void
+      onThemeChanged: (callback: (theme: string) => void) => void
       createFile: (params: { relativePath: string; content: string }) => Promise<{ success: boolean; path?: string; error?: string }>
       readFile: (params: { relativePath: string; worktreePath?: string | null }) => Promise<{ success: boolean; content?: string; error?: string }>
       deleteFile: (params: { relativePath: string }) => Promise<{ success: boolean; error?: string }>
       listFiles: (params: { relativePath: string }) => Promise<{ success: boolean; items?: { name: string; isDirectory: boolean; path: string }[]; error?: string }>
       gitCommit: (message: string, worktreePath?: string | null) => Promise<void>
       getStagedDiffStat: (worktreePath?: string | null) => Promise<string>
+      getTheme: () => Promise<string>
+      setTheme: (theme: string) => Promise<void>
     }
   }
 }
@@ -43,6 +46,7 @@ function App() {
   const [gitRefreshKey, setGitRefreshKey] = useState(0)
   const [tabs, setTabs] = useState<Tab[]>([])
   const [activeTabId, setActiveTabId] = useState<string>('chat')
+  const [theme, setTheme] = useState<string>('dark')
 
   useEffect(() => {
     const init = async () => {
@@ -60,12 +64,21 @@ function App() {
       if (ollamaModels.length > 0) {
         setSelectedModel(ollamaModels[0])
       }
+
+      const savedTheme = await window.electron.getTheme()
+      setTheme(savedTheme)
+      document.documentElement.setAttribute('data-theme', savedTheme)
     }
     
     init()
 
     window.electron.onWorktreeCreated((data) => {
       setWorktreeStatus({ created: true, path: data.path })
+    })
+
+    window.electron.onThemeChanged((newTheme) => {
+      setTheme(newTheme)
+      document.documentElement.setAttribute('data-theme', newTheme)
     })
   }, [])
 
@@ -99,6 +112,12 @@ function App() {
     setGitRefreshKey(k => k + 1)
   }
 
+  const handleThemeChange = async (newTheme: string) => {
+    setTheme(newTheme)
+    document.documentElement.setAttribute('data-theme', newTheme)
+    await window.electron.setTheme(newTheme)
+  }
+
   const handleOpenFile = (filePath: string) => {
     const fileName = filePath.split('/').pop() || filePath
     const tabId = `file-${filePath}`
@@ -118,6 +137,7 @@ function App() {
         <FilePanel
           filePath={filePath}
           worktreePath={selectedWorktree}
+          theme={theme}
         />
       ),
       closable: true
@@ -178,6 +198,8 @@ function App() {
           worktreeStatus={worktreeStatus}
           isGitRepo={isGitRepo}
           selectedWorktree={selectedWorktree}
+          theme={theme}
+          onThemeChange={handleThemeChange}
         />
         <TabSystem
           tabs={tabs}

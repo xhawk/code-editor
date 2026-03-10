@@ -1,11 +1,14 @@
-import { ipcMain, BrowserWindow } from 'electron'
+import { ipcMain, BrowserWindow, app } from 'electron'
 import { existsSync, mkdirSync, writeFileSync, readFileSync, unlinkSync, readdirSync, statSync } from 'fs'
 import { join, dirname } from 'path'
 import log from 'electron-log'
+import Store from 'electron-store'
 import { workingDirectory, worktreePath, getBaseDirectory, setSelectedWorktreePath, setWorktreePath, markWorktreeCreated, selectedWorktreePath } from './state'
 import { getOllamaModels, chatWithOllama } from './ollama'
 import { checkGitRepo, getGitStatus, getAllWorktrees, gitAdd, gitCommit, getStagedDiffStat, removeWorktree } from './git'
 import { createWorktree } from './worktree'
+
+const store = new Store()
 
 let mainWindow: BrowserWindow | null = null
 
@@ -146,5 +149,15 @@ export function registerIpcHandlers() {
       log.error('Failed to list files:', error)
       return { success: false, error: String(error) }
     }
+  })
+
+  ipcMain.handle('get-theme', () => {
+    return store.get('theme', 'dark') as string
+  })
+
+  ipcMain.handle('set-theme', (event, theme: string) => {
+    store.set('theme', theme)
+    mainWindow?.webContents.send('theme-changed', theme)
+    mainWindow?.setBackgroundColor(theme === 'light' ? '#eff1f5' : '#1e1e2e')
   })
 }

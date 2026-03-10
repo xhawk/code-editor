@@ -79,6 +79,27 @@
   cursor: not-allowed;
 }
 
+.theme-select {
+  padding: 6px 10px;
+  background-color: var(--bg-surface-hover);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  font-family: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  max-width: 100px;
+}
+
+.theme-select:hover {
+  border-color: var(--color-primary);
+}
+
+.theme-select option {
+  background-color: var(--bg-surface);
+  color: var(--text-primary);
+}
+
 .refresh-btn {
   padding: 6px 10px;
   background-color: var(--bg-surface-hover);
