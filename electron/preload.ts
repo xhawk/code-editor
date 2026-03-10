@@ -58,6 +58,8 @@ export interface ElectronAPI {
   getTheme: () => Promise<string>
   setTheme: (theme: string) => Promise<void>
   onThemeChanged: (callback: (theme: string) => void) => void
+  getChatMessages: () => Promise<Array<{ role: 'user' | 'assistant'; content: string; timestamp: string }>>
+  setChatMessages: (messages: Array<{ role: 'user' | 'assistant'; content: string; timestamp: string }>) => Promise<void>
 }
 
 const api: ElectronAPI = {
@@ -86,7 +88,9 @@ const api: ElectronAPI = {
   setTheme: (theme) => ipcRenderer.invoke('set-theme', theme),
   onThemeChanged: (callback) => {
     ipcRenderer.on('theme-changed', (_, theme) => callback(theme))
-  }
+  },
+  getChatMessages: () => ipcRenderer.invoke('get-chat-messages'),
+  setChatMessages: (messages) => ipcRenderer.invoke('set-chat-messages', messages)
 }
 
 contextBridge.exposeInMainWorld('electron', api)

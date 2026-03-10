@@ -32,6 +32,8 @@ declare global {
       getStagedDiffStat: (worktreePath?: string | null) => Promise<string>
       getTheme: () => Promise<string>
       setTheme: (theme: string) => Promise<void>
+      getChatMessages: () => Promise<Array<{ role: 'user' | 'assistant'; content: string; timestamp: string }>>
+      setChatMessages: (messages: Array<{ role: 'user' | 'assistant'; content: string; timestamp: string }>) => Promise<void>
     }
   }
 }

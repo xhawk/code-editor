@@ -21,6 +21,26 @@ function ChatPanel({ selectedModel, selectedWorktree, onGitRefresh }: ChatPanelP
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
+    window.electron.getChatMessages().then((saved) => {
+      const loaded: Message[] = saved.map(m => ({
+        role: m.role,
+        content: m.content,
+        timestamp: new Date(m.timestamp)
+      }))
+      setMessages(loaded)
+    })
+  }, [])
+
+  useEffect(() => {
+    const toSave = messages.map(m => ({
+      role: m.role,
+      content: m.content,
+      timestamp: m.timestamp.toISOString()
+    }))
+    window.electron.setChatMessages(toSave)
+  }, [messages])
+
+  useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 

@@ -160,4 +160,12 @@ export function registerIpcHandlers() {
     mainWindow?.webContents.send('theme-changed', theme)
     mainWindow?.setBackgroundColor(theme === 'light' ? '#eff1f5' : '#1e1e2e')
   })
+
+  ipcMain.handle('get-chat-messages', () => {
+    return store.get('chatMessages', []) as Array<{ role: 'user' | 'assistant'; content: string; timestamp: string }>
+  })
+
+  ipcMain.handle('set-chat-messages', (event, messages: Array<{ role: 'user' | 'assistant'; content: string; timestamp: string }>) => {
+    store.set('chatMessages', messages)
+  })
 }
