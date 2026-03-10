@@ -67,8 +67,6 @@ function WorktreeList({ isGitRepo, selectedWorktree, onSelectWorktree }: Worktre
     )
   }
 
-  console.log(worktrees);
-
   return (
     <div className="sidebar sidebar-left">
       <div className="sidebar-header">
@@ -94,7 +92,7 @@ function WorktreeList({ isGitRepo, selectedWorktree, onSelectWorktree }: Worktre
 
         {!isLoading && worktrees.length > 0 && (
           <ul className="git-file-list">
-            {worktrees.map((worktree, index) => (
+            {worktrees.filter(w => !w.isMain).map((worktree, index) => (
 <li key={`${worktree.path}-${index}`} className="git-file-item">
               <div
                 className={`worktree-item ${worktree.path === selectedWorktree ? 'selected' : ''}`}
