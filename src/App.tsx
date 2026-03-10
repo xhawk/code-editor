@@ -24,7 +24,7 @@ declare global {
       onChatStream: (callback: (chunk: string) => void) => void
       onWorktreeCreated: (callback: (data: { path: string }) => void) => void
       createFile: (params: { relativePath: string; content: string }) => Promise<{ success: boolean; path?: string; error?: string }>
-      readFile: (params: { relativePath: string }) => Promise<{ success: boolean; content?: string; error?: string }>
+      readFile: (params: { relativePath: string; worktreePath?: string | null }) => Promise<{ success: boolean; content?: string; error?: string }>
       deleteFile: (params: { relativePath: string }) => Promise<{ success: boolean; error?: string }>
       listFiles: (params: { relativePath: string }) => Promise<{ success: boolean; items?: { name: string; isDirectory: boolean; path: string }[]; error?: string }>
       gitCommit: (message: string, worktreePath?: string | null) => Promise<void>

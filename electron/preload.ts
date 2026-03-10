@@ -49,7 +49,7 @@ export interface ElectronAPI {
   onChatStream: (callback: (chunk: string) => void) => void
   onWorktreeCreated: (callback: (data: { path: string }) => void) => void
   createFile: (params: { relativePath: string; content: string }) => Promise<FileOperationResult>
-  readFile: (params: { relativePath: string }) => Promise<FileOperationResult>
+  readFile: (params: { relativePath: string; worktreePath?: string | null }) => Promise<FileOperationResult>
   deleteFile: (params: { relativePath: string }) => Promise<FileOperationResult>
   listFiles: (params: { relativePath: string }) => Promise<{ success: boolean; items?: FileItem[]; error?: string }>
   gitCommit: (message: string, worktreePath?: string | null) => Promise<void>

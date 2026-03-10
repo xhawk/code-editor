@@ -122,7 +122,7 @@ function FilePanel({ filePath, worktreePath }: FilePanelProps) {
       setError(null)
       
       try {
-        const result = await window.electron.readFile({ relativePath: filePath })
+        const result = await window.electron.readFile({ relativePath: filePath, worktreePath })
         
         if (result.success && result.content !== undefined) {
           setContent(result.content)

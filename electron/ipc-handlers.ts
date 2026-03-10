@@ -91,9 +91,9 @@ export function registerIpcHandlers() {
     }
   })
 
-  ipcMain.handle('read-file', async (event, { relativePath }: { relativePath: string }) => {
+  ipcMain.handle('read-file', async (event, { relativePath, worktreePath }: { relativePath: string; worktreePath?: string | null }) => {
     try {
-      const baseDir = getBaseDirectory()
+      const baseDir = worktreePath || getBaseDirectory()
       const fullPath = join(baseDir, relativePath)
       const content = readFileSync(fullPath, 'utf-8')
       return { success: true, content }
