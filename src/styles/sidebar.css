@@ -178,3 +178,18 @@
     opacity: 0.4;
     cursor: not-allowed;
 }
+/* Clickable file items */
+.git-file-item.clickable {
+    cursor: pointer;
+    transition: background-color 0.15s;
+}
+
+.git-file-item.clickable:hover {
+    background-color: var(--color-primary);
+    color: var(--bg-primary) !important;
+}
+
+.git-file-item.clickable:hover .git-file-status-icon {
+    background-color: var(--bg-primary) !important;
+    color: var(--color-primary) !important;
+}

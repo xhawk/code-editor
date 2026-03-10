@@ -15,9 +15,10 @@ interface GitSidebarProps {
   isGitRepo: boolean
   selectedWorktree?: string | null
   refreshKey?: number
+  onOpenFile?: (filePath: string) => void
 }
 
-function GitSidebar({ isGitRepo, selectedWorktree, refreshKey }: GitSidebarProps) {
+function GitSidebar({ isGitRepo, selectedWorktree, refreshKey, onOpenFile }: GitSidebarProps) {
   const [gitStatus, setGitStatus] = useState<GitStatus | null>(null)
   const [isLoading, setIsLoading] = useState(false)
 
@@ -34,7 +35,6 @@ function GitSidebar({ isGitRepo, selectedWorktree, refreshKey }: GitSidebarProps
       setIsLoading(false)
     }
   }
-
 
   useEffect(() => {
     fetchGitStatus()
@@ -95,6 +95,12 @@ function GitSidebar({ isGitRepo, selectedWorktree, refreshKey }: GitSidebarProps
   }
 
   const groupedFiles = groupFilesByStatus()
+
+  const handleFileClick = (filePath: string) => {
+    if (onOpenFile) {
+      onOpenFile(filePath)
+    }
+  }
 
   if (!isGitRepo) {
     return (
@@ -157,8 +163,9 @@ function GitSidebar({ isGitRepo, selectedWorktree, refreshKey }: GitSidebarProps
                     {files.map((file, index) => (
                       <li
                         key={`${file.path}-${index}`}
-                        className="git-file-item"
+                        className="git-file-item clickable"
                         style={{ color: getStatusColor(status) }}
+                        onClick={() => handleFileClick(file.path)}
                       >
                         <span className="git-file-status-icon">{getStatusIcon(status)}</span>
                         <span className="git-file-path">{file.path}</span>
