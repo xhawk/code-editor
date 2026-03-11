@@ -19,25 +19,31 @@ function ChatPanel({ selectedModel, selectedWorktree, onGitRefresh }: ChatPanelP
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const hasLoadedRef = useRef(false)
 
   useEffect(() => {
-    window.electron.getChatMessages().then((saved) => {
+    hasLoadedRef.current = false
+    const worktreeKey = selectedWorktree ?? 'main'
+    window.electron.getChatMessages(worktreeKey).then((saved) => {
       const loaded: Message[] = saved.map(m => ({
         role: m.role,
         content: m.content,
         timestamp: new Date(m.timestamp)
       }))
       setMessages(loaded)
+      hasLoadedRef.current = true
     })
-  }, [])
+  }, [selectedWorktree])
 
   useEffect(() => {
+    if (!hasLoadedRef.current) return
+    const worktreeKey = selectedWorktree ?? 'main'
     const toSave = messages.map(m => ({
       role: m.role,
       content: m.content,
       timestamp: m.timestamp.toISOString()
     }))
-    window.electron.setChatMessages(toSave)
+    void window.electron.setChatMessages(worktreeKey, toSave)
   }, [messages])
 
   useEffect(() => {
@@ -52,8 +58,7 @@ function ChatPanel({ selectedModel, selectedWorktree, onGitRefresh }: ChatPanelP
       const userMessage: Message = { role: 'user', content, timestamp: new Date() }
       setMessages(prev => [...prev, userMessage])
 
-      const customMsg = trimmed.slice(6).trim()
-      let commitMsg = customMsg
+      let commitMsg = trimmed.slice(6).trim()
       if (!commitMsg) {
         const stat = await window.electron.getStagedDiffStat(selectedWorktree)
         commitMsg = stat || 'Update files'

@@ -161,11 +161,16 @@ export function registerIpcHandlers() {
     mainWindow?.setBackgroundColor(theme === 'light' ? '#eff1f5' : '#1e1e2e')
   })
 
-  ipcMain.handle('get-chat-messages', () => {
-    return store.get('chatMessages', []) as Array<{ role: 'user' | 'assistant'; content: string; timestamp: string }>
+  type ChatMessage = { role: 'user' | 'assistant'; content: string; timestamp: string }
+
+  ipcMain.handle('get-chat-messages', (event, worktreeKey: string) => {
+    const worktreeChats = store.get('worktreeChats', {}) as Record<string, ChatMessage[]>
+    return worktreeChats[worktreeKey] ?? []
   })
 
-  ipcMain.handle('set-chat-messages', (event, messages: Array<{ role: 'user' | 'assistant'; content: string; timestamp: string }>) => {
-    store.set('chatMessages', messages)
+  ipcMain.handle('set-chat-messages', (event, worktreeKey: string, messages: ChatMessage[]) => {
+    const worktreeChats = store.get('worktreeChats', {}) as Record<string, ChatMessage[]>
+    worktreeChats[worktreeKey] = messages
+    store.set('worktreeChats', worktreeChats)
   })
 }
