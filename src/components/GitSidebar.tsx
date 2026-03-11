@@ -23,7 +23,7 @@ function GitSidebar({ isGitRepo, selectedWorktree, refreshKey, onOpenFile }: Git
   const [isLoading, setIsLoading] = useState(false)
 
   const fetchGitStatus = async () => {
-    if (!isGitRepo) return
+    if (!isGitRepo || !selectedWorktree) return
 
     setIsLoading(true)
     try {
@@ -37,6 +37,10 @@ function GitSidebar({ isGitRepo, selectedWorktree, refreshKey, onOpenFile }: Git
   }
 
   useEffect(() => {
+    if (!selectedWorktree) {
+      setGitStatus(null)
+      return
+    }
     fetchGitStatus()
   }, [isGitRepo, selectedWorktree, refreshKey])
 
@@ -135,6 +139,10 @@ function GitSidebar({ isGitRepo, selectedWorktree, refreshKey, onOpenFile }: Git
             <span className="git-branch-label">Branch:</span>
             <span className="git-branch-name">{gitStatus.branch}</span>
           </div>
+        )}
+
+        {!gitStatus && !isLoading && (
+          <p className="sidebar-empty">No branch selected</p>
         )}
         
         {isLoading && (

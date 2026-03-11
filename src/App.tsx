@@ -114,6 +114,11 @@ function App() {
     setGitRefreshKey(k => k + 1)
   }
 
+  const handleSelectWorktree = async (path: string | null) => {
+    setSelectedWorktree(path)
+    await window.electron.setSelectedWorktree(path)
+  }
+
   const handleThemeChange = async (newTheme: string) => {
     setTheme(newTheme)
     document.documentElement.setAttribute('data-theme', newTheme)
@@ -189,7 +194,7 @@ function App() {
 
   return (
     <div className="app">
-      <WorktreeList isGitRepo={isGitRepo} selectedWorktree={selectedWorktree} onSelectWorktree={setSelectedWorktree} />
+      <WorktreeList isGitRepo={isGitRepo} selectedWorktree={selectedWorktree} onSelectWorktree={handleSelectWorktree} />
       <div className="main-content">
         <Header
           workingDir={workingDir}
