@@ -93,11 +93,11 @@ function WorktreeList({ isGitRepo, selectedWorktree, onSelectWorktree }: Worktre
         {!isLoading && worktrees.length > 0 && (
           <ul className="git-file-list">
             {worktrees.filter(w => !w.isMain).map((worktree, index) => (
-<li key={`${worktree.path}-${index}`} className="git-file-item">
-              <div
-                className={`worktree-item ${worktree.path === selectedWorktree ? 'selected' : ''}`}
-                onClick={() => onSelectWorktree(worktree.path)}
-              >
+              <li key={`${worktree.path}-${index}`} className="git-file-item">
+                <div
+                  className={`worktree-item ${worktree.path === selectedWorktree ? 'selected' : ''}`}
+                  onClick={() => onSelectWorktree(worktree.path)}
+                >
                   <div className="worktree-info">
                     <span className="worktree-branch">{worktree.branch}</span>
                     <span className="worktree-path">{shortenPath(worktree.path)}</span>

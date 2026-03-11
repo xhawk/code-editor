@@ -7,8 +7,8 @@ import { workingDirectory, setWorktreePath, markWorktreeCreated, worktreeCreated
 
 const execAsync = promisify(exec)
 
-const ADJECTIVES = ['happy', 'clever', 'brave', 'gentle', 'swift', 'bright', 'kind', 'wise', 'calm', 'eager', 'fierce', 'playful']
-const ANIMALS = ['otter', 'fox', 'badger', 'owl', 'wolf', 'bear', 'hawk', 'deer', 'lynx', 'panda', 'tiger', 'lion']
+const ADJECTIVES = ['happy', 'clever', 'brave', 'gentle', 'swift', 'bright', 'kind', 'wise', 'calm', 'eager', 'fierce', 'playful', 'curious', 'patient', 'focused', 'creative', 'calm', 'peaceful', 'serene', 'tranquil']
+const ANIMALS = ['otter', 'fox', 'badger', 'owl', 'wolf', 'bear', 'hawk', 'deer', 'lynx', 'panda', 'tiger', 'lion', 'eagle', 'raven', 'beaver', 'moose', 'elk']
 
 export function getRandomWorktreeName(): string {
   const adj = ADJECTIVES[Math.floor(Math.random() * ADJECTIVES.length)]

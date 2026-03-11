@@ -51,9 +51,9 @@ Five core tools available to the AI:
 User Input → React Component → IPC Call → Electron Handler → Ollama API
                                                                     ↓
 File Operations ← Tool Execution ← Ollama Response ← Streaming ← Generator Function
-       ↓               ↓                 ↓              ↓              ↑
+       ↓               ↓                 ↓              ↓            ↑
    File System    Git Commands     Response Chunks   Event Stream    │
-       ↓               ↓                 ↓              ↓              │
+       ↓               ↓                 ↓              ↓            │
    Git Tracking   Status Update    UI Update     Continue Stream ────┘
 ```
 
