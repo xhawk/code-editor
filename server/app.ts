@@ -1,5 +1,4 @@
 import { Hono } from 'hono'
-import { cors } from 'hono/cors'
 import { serve } from '@hono/node-server'
 import { workingDirectory } from '../clients/electron/state'
 import models from './routes/models'
@@ -9,14 +8,8 @@ import git from './routes/git'
 import worktrees from './routes/worktrees'
 import settings from './routes/settings'
 
-const corsOrigins = process.env.CORS_ORIGINS
-  ? process.env.CORS_ORIGINS.split(',')
-  : ['http://localhost:5173', 'http://localhost:4173']
-
 export function createApp(): Hono {
   const app = new Hono()
-
-  app.use('*', cors({ origin: corsOrigins }))
 
   // Optional bearer token auth
   if (process.env.API_TOKEN) {
