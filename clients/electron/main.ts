@@ -5,6 +5,7 @@ import log from 'electron-log'
 import Store from 'electron-store'
 import { setWorkingDirectory } from './state'
 import { setMainWindow, registerIpcHandlers } from './ipc-handlers'
+import { startHttpServer } from '../../server/app'
 
 const store = new Store()
 
@@ -38,6 +39,9 @@ function createWindow() {
 
   setWorkingDirectory(workingDirectory)
   log.info(`Working directory: ${workingDirectory}`)
+
+  const port = parseInt(process.env.PORT ?? '3579', 10)
+  startHttpServer(port)
 
   const mainWindow = new BrowserWindow({
     width: 900,
