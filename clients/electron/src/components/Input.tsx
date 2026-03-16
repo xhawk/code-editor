@@ -1,12 +1,15 @@
 import { useState, KeyboardEvent } from 'react'
+import type { AgentMode } from '../App'
 
 interface InputProps {
   onSend: (message: string) => void
   disabled: boolean
   isLoading: boolean
+  agentMode: AgentMode
+  onAgentModeChange: (mode: AgentMode) => void
 }
 
-function Input({ onSend, disabled, isLoading }: InputProps) {
+function Input({ onSend, disabled, isLoading, agentMode, onAgentModeChange }: InputProps) {
   const [message, setMessage] = useState('')
 
   const handleSend = () => {
@@ -25,6 +28,22 @@ function Input({ onSend, disabled, isLoading }: InputProps) {
 
   return (
     <div className="input-area">
+      <div className="agent-mode-toggle">
+        <button
+          className={`mode-btn ${agentMode === 'code' ? 'active' : ''}`}
+          onClick={() => onAgentModeChange('code')}
+          title="Code mode: full tool access, implements changes"
+        >
+          Code
+        </button>
+        <button
+          className={`mode-btn ${agentMode === 'plan' ? 'active' : ''}`}
+          onClick={() => onAgentModeChange('plan')}
+          title="Plan mode: read-only, produces structured plans"
+        >
+          Plan
+        </button>
+      </div>
       <textarea
         value={message}
         onChange={(e) => setMessage(e.target.value)}

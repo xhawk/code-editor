@@ -3,7 +3,7 @@ import { join } from 'path'
 import { promisify } from 'util'
 import { exec } from 'child_process'
 import log from 'electron-log'
-import { workingDirectory, setWorktreePath, markWorktreeCreated, worktreeCreated } from './state'
+import { workingDirectory, setWorktreePath, markWorktreeCreated, worktreeCreated } from '../clients/electron/state'
 
 const execAsync = promisify(exec)
 

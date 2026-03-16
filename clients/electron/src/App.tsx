@@ -5,38 +5,8 @@ import TabSystem, { Tab } from './components/TabSystem'
 import FilePanel from './components/FilePanel'
 import GitSidebar from './components/GitSidebar'
 import WorktreeList from './components/WorktreeList'
-
-
-
-declare global {
-  interface Window {
-    electron: {
-      archiveWorktree: (path: string) => Promise<void>
-      getWorkingDirectory: () => Promise<string>
-      getWorktreeStatus: () => Promise<{ created: boolean; path: string | null }>
-      getOllamaModels: () => Promise<string[]>
-      checkGitRepo: () => Promise<boolean>
-      getGitStatus: (worktreePath?: string | null) => Promise<{ branch: string; files: { path: string; status: string; indexStatus: string; worktreeStatus: string; type: 'modified' | 'added' | 'deleted' | 'renamed' | 'untracked' }[] } | null>
-      getAllWorktrees: () => Promise<{ path: string; branch: string; isMain: boolean }[]>
-      setSelectedWorktree: (path: string | null) => Promise<void>
-      createWorktree: () => Promise<string | null>
-      chat: (params: { model: string; messages: { role: string; content: string }[] }) => Promise<string>
-      onChatStream: (callback: (chunk: string) => void) => void
-      onWorktreeCreated: (callback: (data: { path: string }) => void) => void
-      onThemeChanged: (callback: (theme: string) => void) => void
-      createFile: (params: { relativePath: string; content: string }) => Promise<{ success: boolean; path?: string; error?: string }>
-      readFile: (params: { relativePath: string; worktreePath?: string | null }) => Promise<{ success: boolean; content?: string; error?: string }>
-      deleteFile: (params: { relativePath: string }) => Promise<{ success: boolean; error?: string }>
-      listFiles: (params: { relativePath: string }) => Promise<{ success: boolean; items?: { name: string; isDirectory: boolean; path: string }[]; error?: string }>
-      gitCommit: (message: string, worktreePath?: string | null) => Promise<void>
-      getStagedDiffStat: (worktreePath?: string | null) => Promise<string>
-      getTheme: () => Promise<string>
-      setTheme: (theme: string) => Promise<void>
-      getChatMessages: (worktreeKey: string) => Promise<Array<{ role: 'user' | 'assistant'; content: string; timestamp: string }>>
-      setChatMessages: (worktreeKey: string, messages: Array<{ role: 'user' | 'assistant'; content: string; timestamp: string }>) => Promise<void>
-    }
-  }
-}
+import { api, waitForServer } from './api/client'
+import type { AgentMode } from './api/types'
 
 function App() {
   const [models, setModels] = useState<string[]>([])
@@ -49,39 +19,35 @@ function App() {
   const [tabs, setTabs] = useState<Tab[]>([])
   const [activeTabId, setActiveTabId] = useState<string>('chat')
   const [theme, setTheme] = useState<string>('dark')
+  const [agentMode, setAgentModeState] = useState<AgentMode>('code')
 
   useEffect(() => {
     const init = async () => {
-      const dir = await window.electron.getWorkingDirectory()
+      await waitForServer()
+      const dir = await api.getWorkingDirectory()
       setWorkingDir(dir)
-      
-      const git = await window.electron.checkGitRepo()
+
+      const git = await api.checkGitRepo()
       setIsGitRepo(git)
-      
-      const status = await window.electron.getWorktreeStatus()
+
+      const status = await api.getWorktreeStatus()
       setWorktreeStatus(status)
-      
-      const ollamaModels = await window.electron.getOllamaModels()
+
+      const ollamaModels = await api.getModels()
       setModels(ollamaModels)
       if (ollamaModels.length > 0) {
         setSelectedModel(ollamaModels[0])
       }
 
-      const savedTheme = await window.electron.getTheme()
+      const savedTheme = await api.getTheme()
       setTheme(savedTheme)
       document.documentElement.setAttribute('data-theme', savedTheme)
+
+      const savedMode = await api.getAgentMode()
+      setAgentModeState(savedMode)
     }
-    
+
     init()
-
-    window.electron.onWorktreeCreated((data) => {
-      setWorktreeStatus({ created: true, path: data.path })
-    })
-
-    window.electron.onThemeChanged((newTheme) => {
-      setTheme(newTheme)
-      document.documentElement.setAttribute('data-theme', newTheme)
-    })
   }, [])
 
   // Initialize with ChatPanel tab
@@ -95,15 +61,18 @@ function App() {
             selectedModel={selectedModel}
             selectedWorktree={selectedWorktree}
             onGitRefresh={handleGitRefresh}
+            agentMode={agentMode}
+            onAgentModeChange={handleAgentModeChange}
+            onWorktreeCreated={handleWorktreeCreated}
           />
         ),
         closable: false
       }])
     }
-  }, [selectedModel, selectedWorktree])
+  }, [selectedModel, selectedWorktree, agentMode])
 
   const refreshModels = async () => {
-    const ollamaModels = await window.electron.getOllamaModels()
+    const ollamaModels = await api.getModels()
     setModels(ollamaModels)
     if (ollamaModels.length > 0 && !ollamaModels.includes(selectedModel)) {
       setSelectedModel(ollamaModels[0])
@@ -114,29 +83,36 @@ function App() {
     setGitRefreshKey(k => k + 1)
   }
 
+  const handleWorktreeCreated = (path: string) => {
+    setWorktreeStatus({ created: true, path })
+  }
+
   const handleSelectWorktree = async (path: string | null) => {
     setSelectedWorktree(path)
-    await window.electron.setSelectedWorktree(path)
+    await api.setSelectedWorktree(path)
   }
 
   const handleThemeChange = async (newTheme: string) => {
     setTheme(newTheme)
     document.documentElement.setAttribute('data-theme', newTheme)
-    await window.electron.setTheme(newTheme)
+    await api.setTheme(newTheme)
+  }
+
+  const handleAgentModeChange = async (mode: AgentMode) => {
+    setAgentModeState(mode)
+    await api.setAgentMode(mode)
   }
 
   const handleOpenFile = (filePath: string) => {
     const fileName = filePath.split('/').pop() || filePath
     const tabId = `file-${filePath}`
 
-    // Check if tab already exists
     const existingTab = tabs.find(t => t.id === tabId)
     if (existingTab) {
       setActiveTabId(tabId)
       return
     }
 
-    // Create new file tab
     const newTab: Tab = {
       id: tabId,
       title: fileName,
@@ -155,11 +131,10 @@ function App() {
   }
 
   const handleTabClose = (tabId: string) => {
-    if (tabId === 'chat') return // Can't close chat tab
+    if (tabId === 'chat') return
 
     setTabs(prev => prev.filter(t => t.id !== tabId))
 
-    // If closing active tab, switch to chat
     if (activeTabId === tabId) {
       setActiveTabId('chat')
     }
@@ -169,7 +144,7 @@ function App() {
     setActiveTabId(tabId)
   }
 
-  // Update chat tab content when model/worktree changes
+  // Update chat tab content when model/worktree/agentMode changes
   const updateChatTab = () => {
     setTabs(prev => prev.map(tab => {
       if (tab.id === 'chat') {
@@ -180,6 +155,9 @@ function App() {
               selectedModel={selectedModel}
               selectedWorktree={selectedWorktree}
               onGitRefresh={handleGitRefresh}
+              agentMode={agentMode}
+              onAgentModeChange={handleAgentModeChange}
+              onWorktreeCreated={handleWorktreeCreated}
             />
           )
         }
@@ -190,7 +168,7 @@ function App() {
 
   useEffect(() => {
     updateChatTab()
-  }, [selectedModel, selectedWorktree])
+  }, [selectedModel, selectedWorktree, agentMode])
 
   return (
     <div className="app">

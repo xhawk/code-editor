@@ -2,13 +2,14 @@ import { Hono } from 'hono'
 import { existsSync, mkdirSync, writeFileSync, readFileSync, unlinkSync, readdirSync, statSync } from 'fs'
 import { join, dirname } from 'path'
 import { getBaseDirectory } from '../../clients/electron/state'
-import { gitAdd } from '../../clients/electron/git'
+import { gitAdd } from '../git'
 
 const files = new Hono()
 
 files.get('/', (c) => {
   const path = c.req.query('path') ?? ''
-  const baseDir = getBaseDirectory()
+  const worktreePath = c.req.query('worktreePath') ?? undefined
+  const baseDir = worktreePath || getBaseDirectory()
   const fullPath = join(baseDir, path)
   try {
     const items = readdirSync(fullPath).map(name => ({
@@ -25,7 +26,8 @@ files.get('/', (c) => {
 files.get('/content', (c) => {
   const path = c.req.query('path')
   if (!path) return c.json({ error: 'path required' }, 400)
-  const baseDir = getBaseDirectory()
+  const worktreePath = c.req.query('worktreePath') ?? undefined
+  const baseDir = worktreePath || getBaseDirectory()
   const fullPath = join(baseDir, path)
   try {
     const content = readFileSync(fullPath, 'utf-8')

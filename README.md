@@ -1,90 +1,132 @@
 # Code Editor AI
 
-An Electron-based desktop application that integrates with Ollama AI models to provide an intelligent coding assistant with file management capabilities.
+An Electron desktop application that pairs an Ollama-backed AI agent with a full REST server, enabling local, remote, and headless deployment modes.
 
 ## Features
 
-- AI-powered chat interface with Ollama integration
-- Direct file operations (create, read, delete, list files)
-- Git worktree support for isolated development environments
-- Automatic code generation and file creation
-- Multi-model selection for different AI tasks
-- Real-time conversation history
+- AI chat with streaming responses (SSE) and two agent modes: `code` and `plan`
+- Automatic git worktree creation per session for isolated development
+- Git status sidebar, staged diff, and one-command commits
+- File browser, syntax-highlighted file viewer
+- Persistent chat history and theme preference per worktree
+- Telegram bot integration (headless mode)
+- Three deployment modes: Local, Remote, Headless
 
 ## Prerequisites
 
-- [Node.js](https://nodejs.org/) (v16 or higher)
-- [Ollama](https://ollama.ai/) installed and running locally
-- Git (for version control features)
+- [Node.js](https://nodejs.org/) v18+
+- [Yarn](https://yarnpkg.com/) v1.22+
+- [Ollama](https://ollama.ai/) running locally (`http://127.0.0.1:11434`)
+- Git (for worktree and status features)
 
-## Installation
-
-1. Clone the repository:
-   ```bash
-   git clone <repository-url>
-   cd code-editor-ai
-   ```
-
-2. Install dependencies:
-   ```bash
-   npm install
-   ```
-
-3. Start the development server:
-   ```bash
-   npm run dev
-   ```
-
-## Building
-
-To build the application for production:
+## Quick Start
 
 ```bash
-npm run build
+yarn install
+
+# Local mode — Electron + bundled REST server
+yarn dev
+
+# Headless — REST server + optional Telegram bot
+yarn server:dev
+
+# Remote mode — start server separately, point Electron at it
+REMOTE_API_URL=http://127.0.0.1:3579 yarn dev
 ```
 
-This will create distributable packages for your platform.
+## Scripts
 
-## Usage
+| Script | Description |
+|---|---|
+| `yarn dev` | Start REST server + Electron together (server hot-reloads independently) |
+| `yarn dev:server` | REST server only with hot-reload (`tsx watch`) |
+| `yarn dev:electron` | Electron/Vite only — waits for server on `:3579` first |
+| `yarn build` | Production build (Vite + electron-builder) |
+| `yarn typecheck` | TypeScript type check |
+| `yarn server:dev` | Alias for `dev:server` |
+| `yarn server:build` | Compile server to `dist-server/` |
+| `yarn server:start` | Run compiled server |
 
-Once the application is running:
+## Deployment Modes
 
-1. Select an Ollama model from the dropdown
-2. Type your coding questions or requests in the chat input
-3. The AI can help you by:
-   - Answering coding questions
-   - Generating code snippets
-   - Creating files directly in your workspace
-   - Reading and modifying existing files
+### Local
+Electron starts the REST server automatically on `http://127.0.0.1:3579`.
 
-### Available Commands
+```bash
+yarn dev
+# or with a specific working directory:
+WORKDIR=/path/to/project yarn dev
+```
 
-The AI assistant can perform these file operations:
+### Remote
+Set `REMOTE_API_URL` to skip starting the bundled server. Electron connects to the given URL instead.
 
-- `create_file(relativePath, content)` - Create a new file with content
-- `read_file(relativePath)` - Read the contents of a file
-- `delete_file(relativePath)` - Delete a file
-- `list_files(relativePath)` - List files in a directory
+```bash
+# Terminal 1 — server
+WORKDIR=/path/to/project yarn server:dev
 
-## Architecture
+# Terminal 2 — Electron
+REMOTE_API_URL=http://127.0.0.1:3579 yarn dev
+```
 
-The application consists of:
+### Headless
+REST server only — no Electron window. Useful for CI, containers, or Telegram-only use.
 
-- **Frontend**: React with TypeScript and Tailwind CSS
-- **Backend**: Electron main process handling AI communication and file operations
-- **AI Integration**: Ollama API for local AI model inference
-- **File System**: Direct file manipulation capabilities
+```bash
+WORKDIR=/path/to/project yarn server:start
+curl http://127.0.0.1:3579/api/v1/health
+```
 
-## Contributing
+Optional Telegram bot:
+```bash
+TELEGRAM_TOKEN=your_token WORKDIR=/path/to/project yarn server:start
+```
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+## Environment Variables
 
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
+| Variable         | Default                  | Description                                                       |
+|------------------|--------------------------|-------------------------------------------------------------------|
+| `WORKDIR`        | `process.cwd()`          | Working directory for file and git operations                     |
+| `PORT`           | `3579`                   | HTTP server port                                                  |
+| `REMOTE_API_URL` | —                        | If set, Electron connects here instead of starting its own server |
+| `API_TOKEN`      | —                        | Bearer token for REST API authentication                          |
+| `TELEGRAM_TOKEN` | —                        | Telegram bot token                                                |
+| `OLLAMA_HOST`    | `http://127.0.0.1:11434` | Ollama endpoint (set inside `server/ollama.ts`)                   |
 
-## License
+## Repository Layout
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+```
+├── clients/
+│   └── electron/          # Electron main/preload + React frontend
+│       ├── main.ts        # App entry — mode detection, server start, window
+│       ├── preload.ts     # Injects __API_CONFIG__ into renderer
+│       ├── state.ts       # Shared in-memory state (workingDirectory, worktreePath)
+│       └── src/           # React frontend
+│           ├── api/       # HTTP client (api.*) and shared types
+│           └── components/
+├── server/                # Hono REST server
+│   ├── app.ts             # Router setup
+│   ├── index.ts           # Standalone entry point
+│   ├── ollama.ts          # Ollama client + tool-call loop
+│   ├── git.ts             # Git helpers
+│   ├── worktree.ts        # Worktree creation
+│   ├── storage.ts         # Persistent settings (conf)
+│   ├── telegram.ts        # Telegram bot
+│   ├── agents/            # Agent configs (code / plan)
+│   ├── routes/            # Route handlers
+│   └── tools/             # AI tool implementations
+├── workspace/             # Auto-created worktrees land here
+└── vite.config.ts
+```
+
+## Building for Distribution
+
+```bash
+yarn build
+```
+        
+Output is placed in `release/`. Targets: macOS (dmg), Windows (nsis), Linux (AppImage).
+
+## REST API
+
+The REST server at `http://127.0.0.1:3579/api/v1` is the single source of truth for all operations. See [`server/README.md`](server/README.md) for full endpoint documentation.

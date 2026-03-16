@@ -1,13 +1,14 @@
 {
   "name": "code-editor-ai",
   "version": "1.0.0",
-  "main": "dist-electron/main.js",
+  "main": "clients/electron/dist-electron/main.js",
   "scripts": {
     "dev": "vite",
+    "dev:server": "tsx watch server/index.ts",
+    "dev:electron": "vite",
     "build": "tsc && vite build && electron-builder",
     "build:vite": "tsc && vite build",
     "preview": "vite preview",
-    "electron:dev": "vite",
     "typecheck": "tsc --noEmit",
     "server:dev": "tsx watch server/index.ts",
     "server:build": "tsc -p server/tsconfig.json",
@@ -23,15 +24,13 @@
     "@types/react-dom": "^18.2.18",
     "@types/react-syntax-highlighter": "^15.5.13",
     "@vitejs/plugin-react": "^4.2.1",
-    "concurrently": "^8.2.2",
     "electron": "^28.1.0",
     "electron-builder": "^24.9.1",
     "tsx": "^4.21.0",
     "typescript": "^5.3.3",
     "vite": "^5.0.10",
     "vite-plugin-electron": "^0.28.0",
-    "vite-plugin-electron-renderer": "^0.14.5",
-    "wait-on": "^7.2.0"
+    "vite-plugin-electron-renderer": "^0.14.5"
   },
   "dependencies": {
     "@hono/node-server": "^1.19.11",

@@ -1,96 +1,26 @@
 import { contextBridge, ipcRenderer } from 'electron'
 
-export interface FileItem {
-  name: string
-  isDirectory: boolean
-  path: string
-}
+// Map from stream ID to callback, populated by stream() and cleaned up by streamAbort()
+const streamHandlers = new Map<string, (event: string, data: string) => void>()
 
-export interface FileOperationResult {
-  success: boolean
-  path?: string
-  content?: string
-  error?: string
-}
+ipcRenderer.on('api-stream-event', (_, id: string, event: string, data: string) => {
+  streamHandlers.get(id)?.(event, data)
+})
 
-export interface WorktreeStatus {
-  created: boolean
-  path: string | null
-}
+contextBridge.exposeInMainWorld('__bridge__', {
+  request: (method: string, path: string, body?: unknown) =>
+    ipcRenderer.invoke('api-request', { method, path, body }),
 
-export interface GitStatusFile {
-  path: string
-  status: string
-  indexStatus: string
-  worktreeStatus: string
-  type: 'modified' | 'added' | 'deleted' | 'renamed' | 'untracked'
-}
-
-export interface GitStatus {
-  branch: string
-  files: GitStatusFile[]
-}
-
-export interface GitWorktree {
-  path: string
-  branch: string
-  isMain: boolean
-}
-
-export interface ElectronAPI {
-  getWorkingDirectory: () => Promise<string>
-  getWorktreeStatus: () => Promise<WorktreeStatus>
-  getOllamaModels: () => Promise<string[]>
-  checkGitRepo: () => Promise<boolean>
-  getGitStatus: (worktreePath?: string | null) => Promise<GitStatus | null>
-  getAllWorktrees: () => Promise<GitWorktree[]>
-  createWorktree: () => Promise<string | null>
-  chat: (params: { model: string; messages: { role: string; content: string }[] }) => Promise<string>
-  onChatStream: (callback: (chunk: string) => void) => void
-  onWorktreeCreated: (callback: (data: { path: string }) => void) => void
-  createFile: (params: { relativePath: string; content: string }) => Promise<FileOperationResult>
-  readFile: (params: { relativePath: string; worktreePath?: string | null }) => Promise<FileOperationResult>
-  deleteFile: (params: { relativePath: string }) => Promise<FileOperationResult>
-  listFiles: (params: { relativePath: string }) => Promise<{ success: boolean; items?: FileItem[]; error?: string }>
-  gitCommit: (message: string, worktreePath?: string | null) => Promise<void>
-  getStagedDiffStat: (worktreePath?: string | null) => Promise<string>
-  archiveWorktree: (path: string) => Promise<void>
-  getTheme: () => Promise<string>
-  setTheme: (theme: string) => Promise<void>
-  onThemeChanged: (callback: (theme: string) => void) => void
-  getChatMessages: (worktreeKey: string) => Promise<Array<{ role: 'user' | 'assistant'; content: string; timestamp: string }>>
-  setChatMessages: (worktreeKey: string, messages: Array<{ role: 'user' | 'assistant'; content: string; timestamp: string }>) => Promise<void>
-}
-
-const api: ElectronAPI = {
-  getWorkingDirectory: () => ipcRenderer.invoke('get-working-directory'),
-  getWorktreeStatus: () => ipcRenderer.invoke('get-worktree-status'),
-  getOllamaModels: () => ipcRenderer.invoke('get-ollama-models'),
-  checkGitRepo: () => ipcRenderer.invoke('check-git-repo'),
-  getGitStatus: (worktreePath) => ipcRenderer.invoke('get-git-status', worktreePath),
-  getAllWorktrees: () => ipcRenderer.invoke('get-all-worktrees'),
-  createWorktree: () => ipcRenderer.invoke('create-worktree'),
-  chat: (params) => ipcRenderer.invoke('chat', params),
-  onChatStream: (callback) => {
-    ipcRenderer.on('chat-stream', (_, chunk) => callback(chunk))
+  stream: (id: string, path: string, body: unknown, callback: (event: string, data: string) => void) => {
+    streamHandlers.set(id, callback)
+    ipcRenderer.send('api-stream-start', { id, path, body })
   },
-  onWorktreeCreated: (callback) => {
-    ipcRenderer.on('worktree-created', (_, data) => callback(data))
-  },
-  createFile: (params) => ipcRenderer.invoke('create-file', params),
-  readFile: (params) => ipcRenderer.invoke('read-file', params),
-  deleteFile: (params) => ipcRenderer.invoke('delete-file', params),
-  listFiles: (params) => ipcRenderer.invoke('list-files', params),
-  gitCommit: (message, worktreePath) => ipcRenderer.invoke('git-commit', message, worktreePath),
-  getStagedDiffStat: (worktreePath) => ipcRenderer.invoke('get-staged-diff-stat', worktreePath),
-  archiveWorktree: (path) => ipcRenderer.invoke('archive-worktree', path),
-  getTheme: () => ipcRenderer.invoke('get-theme'),
-  setTheme: (theme) => ipcRenderer.invoke('set-theme', theme),
-  onThemeChanged: (callback) => {
-    ipcRenderer.on('theme-changed', (_, theme) => callback(theme))
-  },
-  getChatMessages: (worktreeKey) => ipcRenderer.invoke('get-chat-messages', worktreeKey),
-  setChatMessages: (worktreeKey, messages) => ipcRenderer.invoke('set-chat-messages', worktreeKey, messages)
-}
 
-contextBridge.exposeInMainWorld('electron', api)
+  streamAbort: (id: string) => {
+    streamHandlers.delete(id)
+    ipcRenderer.send('api-stream-abort', id)
+  }
+})
+
+const mode = process.argv.find(a => a.startsWith('--mode='))?.slice(7) ?? 'local'
+contextBridge.exposeInMainWorld('__API_CONFIG__', { mode })

@@ -1,10 +1,6 @@
 import { useState, useEffect } from 'react'
-
-interface Worktree {
-  path: string
-  branch: string
-  isMain: boolean
-}
+import { api } from '../api/client'
+import type { GitWorktree } from '../api/types'
 
 interface WorktreeListProps {
   isGitRepo: boolean
@@ -13,7 +9,7 @@ interface WorktreeListProps {
 }
 
 function WorktreeList({ isGitRepo, selectedWorktree, onSelectWorktree }: WorktreeListProps) {
-  const [worktrees, setWorktrees] = useState<Worktree[]>([])
+  const [worktrees, setWorktrees] = useState<GitWorktree[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [archiving, setArchiving] = useState<Set<string>>(new Set())
 
@@ -22,7 +18,7 @@ function WorktreeList({ isGitRepo, selectedWorktree, onSelectWorktree }: Worktre
 
     setIsLoading(true)
     try {
-      const result = await window.electron.getAllWorktrees()
+      const result = await api.getAllWorktrees()
       setWorktrees(result)
     } catch (err) {
       console.error('Failed to fetch worktrees:', err)
@@ -39,7 +35,7 @@ function WorktreeList({ isGitRepo, selectedWorktree, onSelectWorktree }: Worktre
     e.stopPropagation()
     setArchiving(prev => new Set(prev).add(path))
     try {
-      await window.electron.archiveWorktree(path)
+      await api.archiveWorktree(path)
       if (selectedWorktree === path) onSelectWorktree(null)
       await fetchWorktrees()
     } catch (err) {

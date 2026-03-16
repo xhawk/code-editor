@@ -1,6 +1,6 @@
 import { Hono } from 'hono'
-import { getAllWorktrees, removeWorktree } from '../../clients/electron/git'
-import { createWorktree } from '../../clients/electron/worktree'
+import { getAllWorktrees, removeWorktree } from '../git'
+import { createWorktree } from '../worktree'
 import {
   setSelectedWorktreePath,
   setWorktreePath,
@@ -10,6 +10,10 @@ import {
 } from '../../clients/electron/state'
 
 const worktrees = new Hono()
+
+worktrees.get('/status', (c) => {
+  return c.json({ created: worktreePath !== null, path: worktreePath })
+})
 
 worktrees.get('/', async (c) => {
   const list = await getAllWorktrees()

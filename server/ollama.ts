@@ -1,6 +1,7 @@
 import log from 'electron-log'
 import { Ollama, type Message, type Tool } from 'ollama'
-import { tools, executeTool } from './tools'
+import { executeTool, getToolsForMode } from './tools'
+import { AGENTS, DEFAULT_AGENT_MODE, type AgentMode } from './agents/agents'
 
 const ollamaClient = new Ollama({ host: 'http://127.0.0.1:11434' })
 
@@ -22,6 +23,13 @@ export interface OllamaMessage {
 }
 
 type ToolCall = { id: string; name: string; arguments: Record<string, unknown> }
+
+export interface ChatOptions {
+  agentMode?: AgentMode
+  systemPrompt?: string
+  overrideTools?: Tool[]
+  overrideToolExecutor?: (name: string, args: Record<string, unknown>) => Promise<string>
+}
 
 function formatToolResult(result: unknown): string {
   if (result === null || result === undefined) return ''
@@ -48,16 +56,16 @@ export async function getOllamaModels(): Promise<string[]> {
 }
 
 // Returns null when the model rejected tools and the caller should retry without them.
-async function openStream(model: string, messages: OllamaMessage[], enableTools: boolean) {
+async function openStream(model: string, messages: OllamaMessage[], activeTools: Tool[]) {
   try {
     return await ollamaClient.chat({
       model,
       messages: messages as Message[],
       stream: true,
-      ...(enableTools ? { tools: tools as Tool[] } : {})
+      ...(activeTools.length > 0 ? { tools: activeTools } : {})
     })
   } catch (e) {
-    if (isResponseError(e) && e.status_code === 400 && enableTools) {
+    if (isResponseError(e) && e.status_code === 400 && activeTools.length > 0) {
       log.warn(`chatWithOllama: request failed with 400, retrying without tools: ${e.error}`)
       return null
     }
@@ -65,21 +73,19 @@ async function openStream(model: string, messages: OllamaMessage[], enableTools:
   }
 }
 
-async function executeToolCalls(toolCalls: ToolCall[]): Promise<OllamaMessage[]> {
+async function executeToolCalls(
+  toolCalls: ToolCall[],
+  executor: (name: string, args: Record<string, unknown>) => Promise<string>
+): Promise<OllamaMessage[]> {
   const results: OllamaMessage[] = []
   for (const tc of toolCalls) {
     try {
-      const result = await executeTool(tc.name, tc.arguments)
-      results.push({
-        role: 'tool',
-        content: result.success ? formatToolResult(result.result) : `Error: ${result.error}`,
-        tool_call_id: tc.id,
-        name: tc.name
-      })
+      const content = await executor(tc.name, tc.arguments)
+      results.push({ role: 'tool', content, tool_call_id: tc.id, name: tc.name })
     } catch (e) {
       results.push({
         role: 'tool',
-        content: `Error parsing arguments: ${String(e)}`,
+        content: `Error: ${String(e)}`,
         tool_call_id: tc.id,
         name: tc.name
       })
@@ -88,25 +94,41 @@ async function executeToolCalls(toolCalls: ToolCall[]): Promise<OllamaMessage[]>
   return results
 }
 
+async function defaultToolExecutor(name: string, args: Record<string, unknown>): Promise<string> {
+  const result = await executeTool(name, args)
+  return result.success ? formatToolResult(result.result) : `Error: ${result.error}`
+}
+
 /**
  * Streams text from Ollama, automatically handling tool calls by executing them and continuing the conversation.
  *
  * @param model The Ollama model to use.
  * @param messages The conversation history.
- * @param enableTools Whether to enable tool calling (defaults to true).
- * @param depth The recursion depth to prevent infinite loops.
+ * @param options Optional configuration for agent mode, system prompt, and tool overrides.
+ * @param depth The recursion depth to prevent infinite loops (internal).
  */
 export async function* chatWithOllama(
   model: string,
   messages: OllamaMessage[],
-  enableTools = true,
+  options: ChatOptions = {},
   depth = 0
 ): AsyncGenerator<string> {
-  log.info(`chatWithOllama: model=${model}, enableTools=${enableTools}, messagesCount=${messages.length}`)
+  const mode = options.agentMode ?? DEFAULT_AGENT_MODE
+  const systemPrompt = options.systemPrompt ?? AGENTS[mode].systemPrompt
+  const activeTools = options.overrideTools ?? (getToolsForMode(mode) as Tool[])
+  const executor = options.overrideToolExecutor ?? defaultToolExecutor
 
-  const stream = await openStream(model, messages, enableTools)
+  // Prepend system message if not already present
+  const hasSystem = messages.length > 0 && messages[0].role === 'system'
+  const fullMessages: OllamaMessage[] = hasSystem
+    ? messages
+    : [{ role: 'system', content: systemPrompt }, ...messages]
+
+  log.info(`chatWithOllama: model=${model}, mode=${mode}, tools=${activeTools.length}, messages=${fullMessages.length}`)
+
+  const stream = await openStream(model, fullMessages, activeTools)
   if (!stream) {
-    yield* chatWithOllama(model, messages, false, depth)
+    yield* chatWithOllama(model, messages, { ...options, overrideTools: [] }, depth)
     return
   }
 
@@ -135,9 +157,9 @@ export async function* chatWithOllama(
     return
   }
 
-  const toolResults = await executeToolCalls(toolCalls)
+  const toolResults = await executeToolCalls(toolCalls, executor)
   const updatedMessages: OllamaMessage[] = [
-    ...messages,
+    ...fullMessages,
     {
       role: 'assistant',
       content: contentAccumulated,
@@ -147,5 +169,5 @@ export async function* chatWithOllama(
   ]
 
   log.info(`chatWithOllama: recursive call depth=${depth + 1}, messages=${updatedMessages.length}`)
-  yield* chatWithOllama(model, updatedMessages, true, depth + 1)
+  yield* chatWithOllama(model, updatedMessages, { ...options, systemPrompt: undefined }, depth + 1)
 }

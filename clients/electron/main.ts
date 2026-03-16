@@ -1,23 +1,98 @@
-import { app, BrowserWindow } from 'electron'
+import { app, BrowserWindow, ipcMain } from 'electron'
 import { existsSync } from 'fs'
 import { join, resolve, isAbsolute } from 'path'
 import log from 'electron-log'
-import Store from 'electron-store'
 import { setWorkingDirectory } from './state'
-import { setMainWindow, registerIpcHandlers } from './ipc-handlers'
 import { startHttpServer } from '../../server/app'
-
-const store = new Store()
-
-export function getStore() {
-  return store
-}
 
 log.initialize()
 log.transports.file.level = 'info'
 log.info('Application starting...')
 
-function createWindow() {
+// URL of the REST server this process will proxy requests to
+let proxyApiUrl = ''
+const streamControllers = new Map<string, AbortController>()
+let ipcProxyRegistered = false
+
+function registerIpcProxy() {
+  if (ipcProxyRegistered) return
+  ipcProxyRegistered = true
+
+  ipcMain.handle('api-request', async (_, { method, path, body }: { method: string; path: string; body?: unknown }) => {
+    const res = await fetch(`${proxyApiUrl}${path}`, {
+      method,
+      headers: body !== undefined ? { 'Content-Type': 'application/json' } : {},
+      body: body !== undefined ? JSON.stringify(body) : undefined
+    })
+    const data = await res.json()
+    if (!res.ok) throw new Error(`${method} ${path} failed: ${res.status}`)
+    return data
+  })
+
+  ipcMain.on('api-stream-start', async (event, { id, path, body }: { id: string; path: string; body: unknown }) => {
+    const controller = new AbortController()
+    streamControllers.set(id, controller)
+
+    const send = (eventName: string, data: string) => {
+      if (!event.sender.isDestroyed()) {
+        event.sender.send('api-stream-event', id, eventName, data)
+      }
+    }
+
+    try {
+      const res = await fetch(`${proxyApiUrl}${path}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+        signal: controller.signal
+      })
+
+      if (!res.ok || !res.body) {
+        send('error', JSON.stringify({ message: `HTTP ${res.status}` }))
+        return
+      }
+
+      const reader = res.body.getReader()
+      const decoder = new TextDecoder()
+      let buffer = ''
+
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+
+        buffer += decoder.decode(value, { stream: true })
+        const lines = buffer.split('\n')
+        buffer = lines.pop() ?? ''
+
+        let eventName = ''
+        for (const line of lines) {
+          if (line.startsWith('event: ')) {
+            eventName = line.slice(7).trim()
+          } else if (line.startsWith('data: ')) {
+            const rawData = line.slice(6)
+            if (eventName) {
+              send(eventName, rawData)
+              eventName = ''
+            }
+          }
+        }
+      }
+    } catch (err) {
+      if ((err as Error).name !== 'AbortError') {
+        send('error', JSON.stringify({ message: String(err) }))
+      }
+    } finally {
+      streamControllers.delete(id)
+    }
+  })
+
+  ipcMain.on('api-stream-abort', (_, id: string) => {
+    streamControllers.get(id)?.abort()
+    streamControllers.delete(id)
+  })
+}
+
+async function createWindow() {
   log.info(`Environment WORKDIR: ${process.env.WORKDIR}`)
   const args = process.argv.slice(1)
   let providedDir = process.env.WORKDIR || args.find(arg => !arg.startsWith('-') && !arg.includes('='))
@@ -41,7 +116,17 @@ function createWindow() {
   log.info(`Working directory: ${workingDirectory}`)
 
   const port = parseInt(process.env.PORT ?? '3579', 10)
-  startHttpServer(port)
+  const remoteApiUrl = process.env.REMOTE_API_URL
+  const mode = remoteApiUrl ? 'remote' : 'local'
+
+  proxyApiUrl = remoteApiUrl ?? `http://127.0.0.1:${port}`
+  registerIpcProxy()
+
+  if (!remoteApiUrl) {
+    await startHttpServer(port).catch((err: Error) => {
+      log.error('HTTP server failed to start:', err)
+    })
+  }
 
   const mainWindow = new BrowserWindow({
     width: 900,
@@ -51,13 +136,12 @@ function createWindow() {
     webPreferences: {
       preload: join(__dirname, 'preload.js'),
       contextIsolation: true,
-      nodeIntegration: false
+      nodeIntegration: false,
+      additionalArguments: [`--mode=${mode}`]
     },
     backgroundColor: '#1e1e2e',
     title: 'Code Editor AI'
   })
-
-  setMainWindow(mainWindow)
 
   if (process.env.VITE_DEV_SERVER_URL) {
     mainWindow.loadURL(process.env.VITE_DEV_SERVER_URL)
@@ -65,10 +149,6 @@ function createWindow() {
   } else {
     mainWindow.loadFile(join(__dirname, '../dist/index.html'))
   }
-
-  mainWindow.on('closed', () => {
-    setMainWindow(null)
-  })
 
   log.info('Window created')
 }
@@ -78,7 +158,7 @@ const gotTheLock = app.requestSingleInstanceLock()
 if (!gotTheLock) {
   app.quit()
 } else {
-  app.on('second-instance', (event, commandLine) => {
+  app.on('second-instance', () => {
     const mainWindow = BrowserWindow.getAllWindows()[0]
     if (mainWindow) {
       if (mainWindow.isMinimized()) mainWindow.restore()
@@ -95,9 +175,8 @@ if (!gotTheLock) {
     log.error('Unhandled rejection:', reason)
   })
 
-  app.whenReady().then(() => {
-    registerIpcHandlers()
-    createWindow()
+  app.whenReady().then(async () => {
+    await createWindow()
 
     app.on('activate', () => {
       if (BrowserWindow.getAllWindows().length === 0) {

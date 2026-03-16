@@ -1,5 +1,5 @@
 import { Hono } from 'hono'
-import { getOllamaModels } from '../../clients/electron/ollama'
+import { getOllamaModels } from '../ollama'
 
 const models = new Hono()
 

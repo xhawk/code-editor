@@ -1,6 +1,6 @@
 import { promisify } from 'util'
 import { exec } from 'child_process'
-import { workingDirectory, getBaseDirectory } from './state'
+import { workingDirectory, getBaseDirectory } from '../clients/electron/state'
 import log from 'electron-log'
 
 const execAsync = promisify(exec)

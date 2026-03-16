@@ -1,15 +1,6 @@
 import { useState, useEffect } from 'react'
-
-interface GitStatus {
-  branch: string
-  files: {
-    path: string
-    status: string
-    indexStatus: string
-    worktreeStatus: string
-    type: 'modified' | 'added' | 'deleted' | 'renamed' | 'untracked'
-  }[]
-}
+import { api } from '../api/client'
+import type { GitStatus } from '../api/types'
 
 interface GitSidebarProps {
   isGitRepo: boolean
@@ -27,7 +18,7 @@ function GitSidebar({ isGitRepo, selectedWorktree, refreshKey, onOpenFile }: Git
 
     setIsLoading(true)
     try {
-      const status = await window.electron.getGitStatus(selectedWorktree)
+      const status = await api.getGitStatus(selectedWorktree)
       setGitStatus(status)
     } catch (err) {
       console.error('Failed to fetch git status:', err)
@@ -80,7 +71,7 @@ function GitSidebar({ isGitRepo, selectedWorktree, refreshKey, onOpenFile }: Git
 
   const groupFilesByStatus = () => {
     if (!gitStatus) return {}
-    
+
     const grouped: Record<string, typeof gitStatus.files> = {
       modified: [],
       added: [],
@@ -88,13 +79,13 @@ function GitSidebar({ isGitRepo, selectedWorktree, refreshKey, onOpenFile }: Git
       renamed: [],
       untracked: []
     }
-    
+
     gitStatus.files.forEach(file => {
       if (grouped[file.type]) {
         grouped[file.type].push(file)
       }
     })
-    
+
     return grouped
   }
 
@@ -132,7 +123,7 @@ function GitSidebar({ isGitRepo, selectedWorktree, refreshKey, onOpenFile }: Git
           ⟳
         </button>
       </div>
-      
+
       <div className="sidebar-content">
         {gitStatus && (
           <div className="git-branch">
@@ -144,24 +135,24 @@ function GitSidebar({ isGitRepo, selectedWorktree, refreshKey, onOpenFile }: Git
         {!gitStatus && !isLoading && (
           <p className="sidebar-empty">No branch selected</p>
         )}
-        
+
         {isLoading && (
           <p className="sidebar-loading">Loading...</p>
         )}
-        
+
         {!isLoading && gitStatus && gitStatus.files.length === 0 && (
           <p className="sidebar-empty">No changes</p>
         )}
-        
+
         {!isLoading && gitStatus && gitStatus.files.length > 0 && (
           <div className="git-files">
             {(['modified', 'added', 'deleted', 'renamed', 'untracked'] as const).map(status => {
               const files = groupedFiles[status]
               if (!files || files.length === 0) return null
-              
+
               return (
                 <div key={status} className="git-file-group">
-                  <h3 
+                  <h3
                     className="git-file-group-title"
                     style={{ color: getStatusColor(status) }}
                   >

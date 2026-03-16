@@ -37,9 +37,13 @@ export function createApp(): Hono {
   return app
 }
 
-export function startHttpServer(port: number): void {
+export function startHttpServer(port: number): Promise<void> {
   const app = createApp()
-  serve({ fetch: app.fetch, hostname: '127.0.0.1', port }, () => {
-    console.log(`HTTP server listening on http://127.0.0.1:${port}`)
+  return new Promise((resolve, reject) => {
+    const server = serve({ fetch: app.fetch, hostname: '127.0.0.1', port }, () => {
+      console.log(`HTTP server listening on http://127.0.0.1:${port}`)
+      resolve()
+    })
+    server.on('error', reject)
   })
 }

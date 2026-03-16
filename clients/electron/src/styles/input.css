@@ -9,6 +9,37 @@
   flex-shrink: 0;
 }
 
+.agent-mode-toggle {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.mode-btn {
+  padding: 5px 10px;
+  background-color: var(--bg-surface-hover);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.15s, color 0.15s, border-color 0.15s;
+  white-space: nowrap;
+}
+
+.mode-btn:hover {
+  border-color: var(--color-primary);
+  color: var(--text-primary);
+}
+
+.mode-btn.active {
+  background-color: var(--color-primary);
+  color: var(--bg-primary);
+  border-color: var(--color-primary);
+}
+
 .message-input {
   flex: 1;
   padding: 12px;

@@ -27,6 +27,7 @@ import bash from 'react-syntax-highlighter/dist/esm/languages/prism/bash'
 import docker from 'react-syntax-highlighter/dist/esm/languages/prism/docker'
 import toml from 'react-syntax-highlighter/dist/esm/languages/prism/toml'
 import ini from 'react-syntax-highlighter/dist/esm/languages/prism/ini'
+import { api } from '../api/client'
 
 SyntaxHighlighter.registerLanguage('javascript', javascript)
 SyntaxHighlighter.registerLanguage('typescript', typescript)
@@ -122,22 +123,17 @@ function FilePanel({ filePath, worktreePath, theme = 'dark' }: FilePanelProps) {
     const loadFile = async () => {
       setIsLoading(true)
       setError(null)
-      
-      try {
-        const result = await window.electron.readFile({ relativePath: filePath, worktreePath })
-        
-        if (result.success && result.content !== undefined) {
-          setContent(result.content)
-        } else {
-          setError(result.error || 'Failed to read file')
-        }
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to read file')
-      } finally {
-        setIsLoading(false)
+
+      const result = await api.readFile({ relativePath: filePath, worktreePath })
+
+      if (result.success && result.content !== undefined) {
+        setContent(result.content)
+      } else {
+        setError(result.error || 'Failed to read file')
       }
+      setIsLoading(false)
     }
-    
+
     loadFile()
   }, [filePath, worktreePath])
 

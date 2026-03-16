@@ -1,17 +1,29 @@
 import { Hono } from 'hono'
 import { streamSSE } from 'hono/streaming'
-import { chatWithOllama, type OllamaMessage } from '../../clients/electron/ollama'
+import { chatWithOllama, type OllamaMessage } from '../ollama'
+import type { AgentMode } from '../agents/agents'
+import { checkGitRepo } from '../git'
+import { createWorktree } from '../worktree'
+import { worktreePath } from '../../clients/electron/state'
 
 const chat = new Hono()
 
 chat.post('/', async (c) => {
-  const body = await c.req.json<{ model: string; messages: OllamaMessage[] }>()
-  const { model, messages } = body
+  const body = await c.req.json<{ model: string; messages: OllamaMessage[]; agentMode?: AgentMode }>()
+  const { model, messages, agentMode } = body
 
   return streamSSE(c, async (stream) => {
     let fullResponse = ''
     try {
-      for await (const chunk of chatWithOllama(model, messages)) {
+      const isGitRepo = await checkGitRepo()
+      if (isGitRepo && !worktreePath) {
+        const newPath = await createWorktree()
+        if (newPath) {
+          await stream.writeSSE({ event: 'worktree', data: JSON.stringify({ path: newPath }) })
+        }
+      }
+
+      for await (const chunk of chatWithOllama(model, messages, { agentMode })) {
         fullResponse += chunk
         await stream.writeSSE({ event: 'chunk', data: JSON.stringify({ text: chunk }) })
       }
