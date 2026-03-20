@@ -26,11 +26,14 @@ function ChatPanel({ selectedModel, selectedWorktree, onGitRefresh, agentMode, o
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const hasLoadedRef = useRef(false)
   const abortRef = useRef<(() => void) | null>(null)
+  const currentWorktreeRef = useRef(selectedWorktree)
 
   useEffect(() => {
     hasLoadedRef.current = false
+    currentWorktreeRef.current = selectedWorktree
     const worktreeKey = selectedWorktree ?? 'main'
     api.getChatMessages(worktreeKey).then((saved) => {
+      if (currentWorktreeRef.current !== selectedWorktree) return
       const loaded: Message[] = saved.map(m => ({
         role: m.role,
         content: m.content,
@@ -38,6 +41,12 @@ function ChatPanel({ selectedModel, selectedWorktree, onGitRefresh, agentMode, o
       }))
       setMessages(loaded)
       hasLoadedRef.current = true
+      setTimeout(() => {
+        const el = messagesEndRef.current
+        if (el) {
+          el.scrollTop = el.scrollHeight
+        }
+      }, 0)
     })
   }, [selectedWorktree])
 
@@ -53,7 +62,15 @@ function ChatPanel({ selectedModel, selectedWorktree, onGitRefresh, agentMode, o
   }, [messages])
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    const scrollToEnd = () => {
+      const el = messagesEndRef.current
+      if (el) {
+        el.scrollTop = el.scrollHeight
+      }
+    }
+    requestAnimationFrame(() => {
+      requestAnimationFrame(scrollToEnd)
+    })
   }, [messages])
 
   const sendMessage = async (content: string) => {
@@ -158,7 +175,7 @@ function ChatPanel({ selectedModel, selectedWorktree, onGitRefresh, agentMode, o
 
   return (
     <>
-      <ChatArea messages={messages} isLoading={isLoading} error={error} />
+      <ChatArea ref={messagesEndRef} messages={messages} isLoading={isLoading} error={error} />
       <Input
         onSend={sendMessage}
         disabled={!selectedModel || isLoading}
@@ -166,7 +183,6 @@ function ChatPanel({ selectedModel, selectedWorktree, onGitRefresh, agentMode, o
         agentMode={agentMode}
         onAgentModeChange={onAgentModeChange}
       />
-      <div ref={messagesEndRef} />
     </>
   )
 }

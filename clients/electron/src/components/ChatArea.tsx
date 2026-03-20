@@ -1,3 +1,4 @@
+import { forwardRef } from 'react'
 import Message from './Message'
 
 interface MessageType {
@@ -12,9 +13,9 @@ interface ChatAreaProps {
   error: string | null
 }
 
-function ChatArea({ messages, isLoading, error }: ChatAreaProps) {
+const ChatArea = forwardRef<HTMLDivElement, ChatAreaProps>(({ messages, isLoading, error }, ref) => {
   return (
-    <div className="chat-area">
+    <div className="chat-area" ref={ref}>
       {messages.length === 0 && !isLoading && (
         <div className="empty-state">
           <p>Start a conversation with your AI model</p>
@@ -39,6 +40,6 @@ function ChatArea({ messages, isLoading, error }: ChatAreaProps) {
       )}
     </div>
   )
-}
+})
 
 export default ChatArea
