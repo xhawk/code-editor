@@ -1,4 +1,3 @@
-import 'dotenv/config'
 import { resolve, isAbsolute } from 'path'
 import { existsSync } from 'fs'
 import { setWorkingDirectory } from '../clients/electron/state'
@@ -25,8 +24,11 @@ setWorkingDirectory(workDir)
 console.log(`Working directory: ${workDir}`)
 
 const port = parseInt(process.env.PORT ?? '3579', 10)
-startHttpServer(port)
+console.log("PORT", port);
 
+void startHttpServer(port)
+
+console.log("ENVs", process.env);
 if (process.env.TELEGRAM_TOKEN) {
   void startTelegramBot(process.env.TELEGRAM_TOKEN)
 }

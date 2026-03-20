@@ -3,6 +3,7 @@
 ## Commit Message Conventions
 
 When generating commit messages, AI agents should use **present tense** rather than past tense.
+Example: add a function, remove stale code, change API to rcp from rest
 
 ### Examples
 

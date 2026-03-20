@@ -1,4 +1,6 @@
+import 'dotenv/config'
 import { Hono } from 'hono'
+import { startTelegramBot } from './telegram'
 import { serve } from '@hono/node-server'
 import { workingDirectory } from '../clients/electron/state'
 import models from './routes/models'
@@ -42,6 +44,9 @@ export function startHttpServer(port: number): Promise<void> {
   return new Promise((resolve, reject) => {
     const server = serve({ fetch: app.fetch, hostname: '127.0.0.1', port }, () => {
       console.log(`HTTP server listening on http://127.0.0.1:${port}`)
+      if (process.env.TELEGRAM_TOKEN) {
+        void startTelegramBot(process.env.TELEGRAM_TOKEN)
+      }
       resolve()
     })
     server.on('error', reject)
